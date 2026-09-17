@@ -186,8 +186,7 @@ Whenever a version tag (`v*`) is pushed:
 │       │   │   ├── telephony/
 │       │   │   │   ├── TelephonyController.kt     # Dual-SIM Switcher
 │       │   │   │   ├── ims/
-│       │   │   │   │   ├── BrokerInstrumentation.kt # Elevated instrumentation runner
-│       │   │   │   │   ├── ImsController.kt       # Carrier config override & boot restorer
+│       │   │   │   │   ├── ImsController.kt       # Carrier config override & boot restorer (in-process shell delegation)
 │       │   │   │   │   ├── model/
 │       │   │   │   │   │   └── ImsConfig.kt       # CarrierConfigManager flags data model
 │       │   │   │   │   ├── repository/

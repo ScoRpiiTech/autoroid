@@ -73,16 +73,48 @@ class AutoroidApp : Application() {
         pointerLocationHelper = com.autoroid.app.feature.workflow.runner.PointerLocationHelper(privilegeManager)
         updateManager = com.autoroid.app.feature.update.UpdateManager(this, privilegeManager)
 
-        // Initialize state asynchronously
+        // Initialize state asynchronously with robust error boundaries
         applicationScope.launch {
-            privilegeManager.refresh()
-            accessibilityController.refreshState()
-            telephonyController.refreshSimState()
-            simScheduleManager.onBoot()
-            imsController.onBoot()
-            workflowRepository.initialize()
-            pointerLocationHelper.refreshState()
-            updateManager.checkForUpdates()
+            try {
+                privilegeManager.refresh()
+            } catch (t: Throwable) {
+                android.util.Log.w("AutoroidApp", "Privilege refresh note: ${t.message}")
+            }
+            try {
+                accessibilityController.refreshState()
+            } catch (t: Throwable) {
+                android.util.Log.w("AutoroidApp", "Accessibility refresh note: ${t.message}")
+            }
+            try {
+                telephonyController.refreshSimState()
+            } catch (t: Throwable) {
+                android.util.Log.w("AutoroidApp", "Telephony refresh note: ${t.message}")
+            }
+            try {
+                simScheduleManager.onBoot()
+            } catch (t: Throwable) {
+                android.util.Log.w("AutoroidApp", "SimScheduleManager onBoot note: ${t.message}")
+            }
+            try {
+                imsController.onBoot()
+            } catch (t: Throwable) {
+                android.util.Log.w("AutoroidApp", "ImsController onBoot note: ${t.message}")
+            }
+            try {
+                workflowRepository.initialize()
+            } catch (t: Throwable) {
+                android.util.Log.w("AutoroidApp", "WorkflowRepository initialize note: ${t.message}")
+            }
+            try {
+                pointerLocationHelper.refreshState()
+            } catch (t: Throwable) {
+                android.util.Log.w("AutoroidApp", "PointerLocationHelper refresh note: ${t.message}")
+            }
+            try {
+                updateManager.checkForUpdates()
+            } catch (t: Throwable) {
+                android.util.Log.w("AutoroidApp", "UpdateManager checkForUpdates note: ${t.message}")
+            }
         }
     }
 

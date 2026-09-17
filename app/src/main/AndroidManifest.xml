@@ -18,12 +18,6 @@
         <package android:name="moe.shizuku.privileged.api" />
     </queries>
 
-    <!-- Elevated Instrumentation runner for Carrier & IMS overrides (Pixel VoLTE/VoWiFi/VoNR bypass) -->
-    <instrumentation
-        android:name=".feature.telephony.ims.BrokerInstrumentation"
-        android:targetPackage="com.autoroid.app"
-        android:label="Autoroid Carrier Override Instrumentation" />
-
     <application
         android:name=".AutoroidApp"
         android:allowBackup="false"

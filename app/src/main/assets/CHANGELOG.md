@@ -486,5 +486,34 @@
 ### 2. Version Bump
 * **`app/build.gradle.kts`**: Bumped `versionCode = 13` and `versionName = "1.2.12"`.
 
+---
 
+## [v1.2.13] - Luxury Adaptive App Icon & Material You Dynamic Theming
+* **Date:** 2026-09-18
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
 
+### 1. High-Class Luxury App Icon Redesign
+* **Problem:** Replaced the legacy placeholder square icon (`#00E5FF` rectangle) with a state-of-the-art luxury design.
+* **Design Philosophy:**
+  - Futuristic titanium cybernetic shield emblem infused with glowing neon cyan (`#00E5FF`) and electric emerald (`#2EE59D`) microchip circuitry.
+  - Dark obsidian glass depth background (`#080E17`).
+  - Stylized cybernetic crest 'A' integrated with an elevated Android core processor.
+  - Ultra-high resolution asset downsampled using Lanczos resampling for razor-sharp fidelity across all density buckets.
+
+### 2. Full Android Adaptive Icon Architecture (`mipmap-anydpi-v26`)
+* **Adaptive Icon Layers:**
+  - `drawable/ic_launcher_background.xml`: Deep obsidian cyber grid background vector (`#080E17` / `#0A1424`).
+  - `drawable-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ic_launcher_foreground.png`: High-resolution foreground layers scaled to 108dp canvas with safe zone margins to prevent clipping on circular and squircle launchers.
+  - `drawable/ic_launcher_monochrome.xml`: Minimalist vector silhouette of the cyber shield, 'A' crest, and microchip core for Android 13+ (Pixel 7 Pro) Material You dynamic wallpaper color theming.
+  - `mipmap-anydpi-v26/ic_launcher.xml` and `ic_launcher_round.xml`: Updated to declare `<adaptive-icon>` referencing background, foreground, and monochrome assets.
+
+### 3. Legacy Density Mipmaps
+* Generated multi-density raster drawables for legacy launchers, Android Settings, notifications, and APK extractors:
+  - `mipmap-mdpi/ic_launcher.png` & `ic_launcher_round.png` (48x48)
+  - `mipmap-hdpi/ic_launcher.png` & `ic_launcher_round.png` (72x72)
+  - `mipmap-xhdpi/ic_launcher.png` & `ic_launcher_round.png` (96x96)
+  - `mipmap-xxhdpi/ic_launcher.png` & `ic_launcher_round.png` (144x144)
+  - `mipmap-xxxhdpi/ic_launcher.png` & `ic_launcher_round.png` (192x192)
+
+### 4. Version Bump
+* **`app/build.gradle.kts`**: Bumped `versionCode = 14` and `versionName = "1.2.13"`.

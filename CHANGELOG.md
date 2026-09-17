@@ -517,3 +517,33 @@
 
 ### 4. Version Bump
 * **`app/build.gradle.kts`**: Bumped `versionCode = 14` and `versionName = "1.2.13"`.
+
+---
+
+## [v1.2.14] - Fix App Launch Crash & In-Process Shell Permission Delegation
+* **Date:** 2026-09-18
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
+
+### 1. Root Cause Analysis of Launch Crash
+* **Problem:** Following the VoLTE/VoWiFi updates, users experienced immediate crashes on app launch ("not opening").
+* **Identified Root Causes:**
+  1. **`<instrumentation>` Manifest Conflict:** Declaring an `<instrumentation>` tag in `src/main/AndroidManifest.xml` targeting the app's own package (`com.autoroid.app`) caused Android's `ActivityThread` to treat the package as an instrumentation test target on app startup. Normal activity launches failed immediately with `SecurityException` / `Process crashed`.
+  2. **Process Termination by `am instrument`:** Android's `ActivityManagerService` forcefully kills any existing process for `targetPackage` when `am instrument` is executed. Calling `am instrument` from `ImsController.onBoot()` resulted in Android killing Autoroid's process 2.5 seconds after launch.
+  3. **Unprotected Startup Coroutine:** `applicationScope.launch` in `AutoroidApp.kt` lacked individual exception guards around subsystem initialization.
+
+### 2. Implementation: In-Process Shell Permission Delegation
+* **`AndroidManifest.xml`**: Completely removed the `<instrumentation>` tag.
+* **Deleted `BrokerInstrumentation.kt`**: Eliminated the external instrumentation component.
+* **`ImsController.kt`**:
+  - Replaced `am instrument` with direct in-process Shell Permission Delegation via Shizuku:
+    1. Acquires `IActivityManager` via `ShizukuBinderWrapper(getSystemService("activity"))`.
+    2. Calls `startDelegateShellPermissionIdentity(Process.myUid(), null)` to grant the app's process shell-level identity.
+    3. Directly calls `CarrierConfigManager.overrideConfig(subId, bundle, persistent = false)`.
+    4. Safely releases delegation via `stopDelegateShellPermissionIdentity()`.
+  - Added direct `ICarrierConfigLoader` Binder IPC fallback.
+  - Added Root execution fallback (`pm grant com.autoroid.app android.permission.MODIFY_PHONE_STATE`).
+  - Added safety wrappers around `onBoot()` so auto-restore never interrupts app startup.
+* **`AutoroidApp.kt`**: Wrapped each subsystem's initialization in individual `try-catch` blocks to ensure fail-safe app launches.
+
+### 3. Version Bump
+* **`app/build.gradle.kts`**: Bumped `versionCode = 15` and `versionName = "1.2.14"`.
