@@ -1,6 +1,6 @@
 # Autoroid - Project Architecture & Technical Context
 
-> **Last Updated:** 2026-09-17  
+> **Last Updated:** 2026-09-18  
 > **Package ID:** `com.autoroid.app`  
 > **Target Android Version:** Android 15 / 16 / 17 (`compileSdk = 36`, `targetSdk = 36`, `minSdk = 29`)  
 > **Distribution Model:** Self-hosted / Power User Automations (Not bound by Google Play sandbox restrictions)
@@ -41,11 +41,11 @@ export PATH="$JAVA_HOME/bin:$PATH"
 ```
 
 ### Automated GitHub Actions CI/CD (`.github/workflows/release.yml`):
-Whenever code is pushed to `main` or a `v*` tag is created:
+Whenever a version tag (`v*`) is pushed:
 1. Ubuntu runner checks out repo with full history.
 2. Installs Temurin JDK 19, NDK 27, and CMake.
 3. Compiles and signs the release APK using `autoroid-release.jks`.
-4. Automatically publishes the GitHub Release on `ScoRpiiTech/autoroid` with `app-release.apk` attached.
+4. Uses native `gh release` CLI to idempotently publish or update the release and upload `app-release.apk` with `--clobber`.
 
 ---
 

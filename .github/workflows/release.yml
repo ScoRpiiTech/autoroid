@@ -2,8 +2,6 @@ name: Build & Publish Release
 
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -91,13 +89,20 @@ jobs:
           "
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
-        with:
-          tag_name: ${{ steps.vars.outputs.tag }}
-          name: "Autoroid ${{ steps.vars.outputs.tag }}"
-          files: app/build/outputs/apk/release/app-release.apk
-          body_path: release_notes.md
-          make_latest: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.vars.outputs.tag }}"
+          echo "Publishing release for $TAG..."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists, updating release notes and uploading asset..."
+            gh release edit "$TAG" --title "Autoroid $TAG" --notes-file release_notes.md
+            gh release upload "$TAG" app/build/outputs/apk/release/app-release.apk --clobber
+          else
+            echo "Creating new release $TAG..."
+            gh release create "$TAG" app/build/outputs/apk/release/app-release.apk \
+              --title "Autoroid $TAG" \
+              --notes-file release_notes.md \
+              --latest
+          fi
+          echo "Successfully published $TAG release with APK asset."

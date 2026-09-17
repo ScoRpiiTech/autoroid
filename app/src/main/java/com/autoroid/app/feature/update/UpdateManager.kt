@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import moe.shizuku.server.IShizukuService
+import org.json.JSONArray
 import org.json.JSONObject
 import rikka.shizuku.Shizuku
 import java.io.File
@@ -41,7 +42,7 @@ class UpdateManager(
     companion object {
         const val GITHUB_OWNER = "ScoRpiiTech"
         const val GITHUB_REPO = "autoroid"
-        private const val API_URL = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest"
+        private const val API_URL = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases?per_page=5"
         private const val CHANNEL_ID = "autoroid_app_updates"
         private const val NOTIFICATION_ID_UPDATE = 3001
         const val EXTRA_OPEN_UPDATE = "EXTRA_OPEN_UPDATE"
@@ -133,15 +134,40 @@ class UpdateManager(
                 return@withContext null
             }
 
-            val response = conn.inputStream.bufferedReader().use { it.readText() }
-            val json = JSONObject(response)
+            val response = conn.inputStream.bufferedReader().use { it.readText() }.trim()
+            var targetRelease: JSONObject? = null
+            var newestTag = ""
 
-            val tagName = json.optString("tag_name", "")
-            val rawReleaseNotes = json.optString("body", "No release notes provided.")
-            val publishedAt = json.optString("published_at", "")
+            if (response.startsWith("[")) {
+                val array = JSONArray(response)
+                for (i in 0 until array.length()) {
+                    val rel = array.optJSONObject(i) ?: continue
+                    if (rel.optBoolean("draft", false)) continue
+                    val tag = rel.optString("tag_name", "")
+                    if (targetRelease == null || isNewerVersion(tag, newestTag)) {
+                        targetRelease = rel
+                        newestTag = tag
+                    }
+                }
+            } else if (response.startsWith("{")) {
+                targetRelease = JSONObject(response)
+                newestTag = targetRelease.optString("tag_name", "")
+            }
+
+            if (targetRelease == null || newestTag.isBlank()) {
+                _updateStatus.value = UpdateStatus(
+                    state = UpdateState.UP_TO_DATE,
+                    message = "Autoroid is up to date ($currentVersion)"
+                )
+                return@withContext null
+            }
+
+            val tagName = newestTag
+            val rawReleaseNotes = targetRelease.optString("body", "No release notes provided.")
+            val publishedAt = targetRelease.optString("published_at", "")
 
             var downloadUrl = ""
-            val assets = json.optJSONArray("assets")
+            val assets = targetRelease.optJSONArray("assets")
             if (assets != null) {
                 for (i in 0 until assets.length()) {
                     val asset = assets.optJSONObject(i) ?: continue
@@ -151,6 +177,11 @@ class UpdateManager(
                         break
                     }
                 }
+            }
+
+            // Fallback to standard deterministic release download URL if assets list is pending/delayed
+            if (downloadUrl.isBlank() && tagName.isNotBlank()) {
+                downloadUrl = "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/download/$tagName/app-release.apk"
             }
 
             val updatesDir = File(context.cacheDir, "updates")
@@ -168,7 +199,7 @@ class UpdateManager(
                 latestVersion = tagName,
                 releaseNotes = finalReleaseNotes,
                 downloadUrl = downloadUrl,
-                hasUpdate = isNewer && downloadUrl.isNotBlank(),
+                hasUpdate = isNewer,
                 publishedAt = publishedAt,
                 isDownloaded = isDownloaded
             )

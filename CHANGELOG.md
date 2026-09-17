@@ -418,5 +418,29 @@
 ### 3. Version Bump
 * **`app/build.gradle.kts`**: Bumped `versionCode = 10` and `versionName = "1.2.9"`.
 
+---
+
+## [v1.2.10] - GitHub Release Pipeline Fix & Deterministic Update Engine
+* **Date:** 2026-09-18
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
+
+### 1. Root Cause Fix: "Already Up To Date" & Missing Assets
+* **Diagnosed Root Causes:**
+  - Parallel GitHub Actions runners triggered on both `main` branch push and tag push raced to publish the same release, causing asset upload deadlocks and leaving releases with empty assets.
+  - `UpdateManager.kt` previously calculated `hasUpdate = isNewer && downloadUrl.isNotBlank()`. When GitHub release assets were empty or still finalizing, `hasUpdate` evaluated to `false`, silently suppressing the update and reporting "Autoroid is up to date".
+  - GitHub `/releases/latest` endpoint caching caused delayed visibility of newly published releases.
+* **`UpdateManager.kt` Fixes:**
+  - Switched endpoint to `/releases?per_page=5` with semver tag sorting to bypass CDN edge cache staleness.
+  - Added deterministic fallback download URL (`https://github.com/$OWNER/$REPO/releases/download/$TAG/app-release.apk`) if asset metadata is delayed.
+  - Decoupled `hasUpdate = isNewer` so newly available releases are always surfaced to the user.
+
+### 2. CI/CD Release Pipeline Hardening
+* **`.github/workflows/release.yml`**:
+  - Removed `push: branches: [main]` so release jobs only trigger on explicit version tags (`v*`), completely eliminating concurrent runner collisions.
+  - Migrated from third-party release action to native GitHub CLI (`gh release create` / `gh release upload --clobber`), preventing hanging and ensuring idempotent asset uploads.
+
+### 3. Version Bump
+* **`app/build.gradle.kts`**: Bumped `versionCode = 11` and `versionName = "1.2.10"`.
+
 
 
