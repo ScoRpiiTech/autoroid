@@ -39,6 +39,12 @@ class AutoroidApp : Application() {
     lateinit var simScheduleManager: com.autoroid.app.feature.telephony.schedule.SimScheduleManager
         private set
 
+    lateinit var imsRepository: com.autoroid.app.feature.telephony.ims.repository.ImsRepository
+        private set
+
+    lateinit var imsController: com.autoroid.app.feature.telephony.ims.ImsController
+        private set
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
@@ -55,6 +61,13 @@ class AutoroidApp : Application() {
             telephonyController,
             privilegeManager
         )
+        imsRepository = com.autoroid.app.feature.telephony.ims.repository.ImsRepository(this)
+        imsController = com.autoroid.app.feature.telephony.ims.ImsController(
+            this,
+            imsRepository,
+            telephonyController,
+            privilegeManager
+        )
         workflowRepository = com.autoroid.app.feature.workflow.repository.WorkflowRepository(this)
         workflowRunner = com.autoroid.app.feature.workflow.runner.WorkflowRunner(this, privilegeManager)
         pointerLocationHelper = com.autoroid.app.feature.workflow.runner.PointerLocationHelper(privilegeManager)
@@ -66,6 +79,7 @@ class AutoroidApp : Application() {
             accessibilityController.refreshState()
             telephonyController.refreshSimState()
             simScheduleManager.onBoot()
+            imsController.onBoot()
             workflowRepository.initialize()
             pointerLocationHelper.refreshState()
             updateManager.checkForUpdates()

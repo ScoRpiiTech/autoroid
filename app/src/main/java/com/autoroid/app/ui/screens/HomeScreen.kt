@@ -43,6 +43,7 @@ import com.autoroid.app.feature.update.model.UpdateState
 import com.autoroid.app.feature.update.ui.UpdateBannerCard
 import com.autoroid.app.feature.update.ui.UpdateStatusDialog
 import com.autoroid.app.feature.telephony.ui.DualSimManagerCard
+import com.autoroid.app.feature.telephony.ims.ui.ImsCarrierPatcherCard
 import com.autoroid.app.feature.workflow.model.Workflow
 import com.autoroid.app.feature.workflow.ui.WorkflowCard
 import com.autoroid.app.feature.workflow.ui.WorkflowEditorDialog
@@ -101,6 +102,8 @@ fun HomeScreen(
     val simSlots by viewModel.simSlots.collectAsState()
     val activeDataSubId by viewModel.activeDataSubId.collectAsState()
     val simSchedule by viewModel.simSchedule.collectAsState()
+    val imsConfigs by viewModel.imsConfigs.collectAsState()
+    val isImsApplying by viewModel.isImsApplying.collectAsState()
     val nativeVer by viewModel.nativeVersion.collectAsState()
     val logs by viewModel.consoleLogs.collectAsState()
     val isBusy by viewModel.isBusy.collectAsState()
@@ -264,6 +267,20 @@ fun HomeScreen(
                     onUpdateSchedule = { viewModel.updateSimSchedule(it) },
                     onToggleSchedule = { viewModel.toggleSimSchedule(it) },
                     onHelpClick = { activeHelpType = FeatureHelpType.SIM_SWITCHER }
+                )
+            }
+
+            // Milestone Feature: Carrier & IMS Patcher (Pixel VoLTE, VoWiFi, VoNR 5G Enabler)
+            item {
+                ImsCarrierPatcherCard(
+                    simSlots = simSlots,
+                    imsConfigs = imsConfigs,
+                    isApplying = isImsApplying,
+                    onSaveConfig = { viewModel.saveImsConfig(it) },
+                    onApplyConfig = { slotIndex, subId, config -> viewModel.applyImsConfig(slotIndex, subId, config) },
+                    onApplyAll = { viewModel.applyImsToAllActiveSims() },
+                    onResetConfig = { slotIndex, subId -> viewModel.resetImsConfig(slotIndex, subId) },
+                    onHelpClick = { activeHelpType = FeatureHelpType.CARRIER_IMS_PATCHER }
                 )
             }
 

@@ -27,6 +27,8 @@ class MainViewModel : ViewModel() {
     private val pointerLocationHelper = AutoroidApp.instance.pointerLocationHelper
     private val updateManager = AutoroidApp.instance.updateManager
     private val simScheduleManager = AutoroidApp.instance.simScheduleManager
+    private val imsRepository = AutoroidApp.instance.imsRepository
+    private val imsController = AutoroidApp.instance.imsController
 
     val privilegeLevel: StateFlow<PrivilegeLevel> = privilegeManager.currentLevel
     val isBankModeActive: StateFlow<Boolean> = accessibilityController.isBankModeActive
@@ -35,6 +37,8 @@ class MainViewModel : ViewModel() {
     val simSlots: StateFlow<List<SimSlotInfo>> = telephonyController.simSlots
     val activeDataSubId: StateFlow<Int?> = telephonyController.activeDataSubId
     val simSchedule: StateFlow<com.autoroid.app.feature.telephony.schedule.model.SimSchedule> = simScheduleManager.schedule
+    val imsConfigs: StateFlow<Map<Int, com.autoroid.app.feature.telephony.ims.model.ImsConfig>> = imsRepository.configs
+    val isImsApplying: StateFlow<Boolean> = imsController.isApplying
     val workflows: StateFlow<List<com.autoroid.app.feature.workflow.model.Workflow>> = workflowRepository.workflows
     val executionState: StateFlow<com.autoroid.app.feature.workflow.runner.ExecutionState> = workflowRunner.executionState
     val isPointerLocationActive: StateFlow<Boolean> = pointerLocationHelper.isPointerLocationActive
@@ -276,6 +280,65 @@ class MainViewModel : ViewModel() {
                 _uiEvent.emit("⏰ SIM Auto-Schedule PAUSED.")
             }
             log("SIM Auto-Schedule: ${if (enabled) "ENABLED" else "PAUSED"}")
+        }
+    }
+
+    fun getImsConfig(slotIndex: Int, subId: Int): com.autoroid.app.feature.telephony.ims.model.ImsConfig {
+        return imsRepository.getConfig(slotIndex, subId)
+    }
+
+    fun saveImsConfig(config: com.autoroid.app.feature.telephony.ims.model.ImsConfig) {
+        imsRepository.saveConfig(config)
+    }
+
+    fun applyImsConfig(slotIndex: Int, subId: Int, config: com.autoroid.app.feature.telephony.ims.model.ImsConfig) {
+        viewModelScope.launch {
+            _isBusy.value = true
+            log("Applying IMS overrides for Slot $slotIndex (SubId $subId)...")
+            val res = imsController.applyConfig(slotIndex, subId, config)
+            if (res.isSuccess) {
+                _uiEvent.emit("⚡ IMS overrides active on SIM ${slotIndex + 1}!")
+                log(res.getOrNull() ?: "IMS overrides applied.")
+            } else {
+                val err = res.exceptionOrNull()?.message ?: "Unknown error"
+                _uiEvent.emit("⚠️ IMS override failed: $err")
+                log("[ERR] IMS override failed: $err")
+            }
+            _isBusy.value = false
+        }
+    }
+
+    fun applyImsToAllActiveSims() {
+        viewModelScope.launch {
+            _isBusy.value = true
+            log("Applying IMS overrides to all active SIMs...")
+            val res = imsController.applyToAllActiveSims()
+            if (res.isSuccess) {
+                _uiEvent.emit("⚡ IMS overrides active on all SIMs!")
+                log(res.getOrNull() ?: "IMS applied to all SIMs.")
+            } else {
+                val err = res.exceptionOrNull()?.message ?: "Unknown error"
+                _uiEvent.emit("⚠️ Failed to apply to all SIMs: $err")
+                log("[ERR] Failed to apply to all SIMs: $err")
+            }
+            _isBusy.value = false
+        }
+    }
+
+    fun resetImsConfig(slotIndex: Int, subId: Int) {
+        viewModelScope.launch {
+            _isBusy.value = true
+            log("Reverting carrier configs for SIM ${slotIndex + 1} to factory defaults...")
+            val res = imsController.clearConfig(slotIndex, subId)
+            if (res.isSuccess) {
+                _uiEvent.emit("↺ Factory carrier configs restored for SIM ${slotIndex + 1}.")
+                log(res.getOrNull() ?: "Factory configs restored.")
+            } else {
+                val err = res.exceptionOrNull()?.message ?: "Failed"
+                _uiEvent.emit("⚠️ Reset failed: $err")
+                log("[ERR] Reset failed: $err")
+            }
+            _isBusy.value = false
         }
     }
 

@@ -356,3 +356,42 @@
 ### 4. Version Bump
 * **`app/build.gradle.kts`**: Bumped `versionCode = 8` and `versionName = "1.2.7"`.
 
+---
+
+## [v1.2.8] - Native Pixel IMS & Carrier Config Patcher (Turbo IMS Killer)
+* **Date:** 2026-09-18
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
+
+### 1. Built-in Pixel IMS & Carrier Config Engine
+* **`ImsConfig.kt`**:
+  - Full data model mapping carrier overrides to Android `CarrierConfigManager` keys.
+  - Controls VoLTE (`carrier_volte_available_bool`, `enhanced_4g_lte_on_by_default_bool`), VoWiFi (`carrier_wfc_ims_available_bool`, `carrier_default_wfc_ims_enabled_bool`), 5G VoNR (`vonr_enabled_bool`, `carrier_vonr_available_bool`), Ut Interface (`carrier_supports_ss_over_ut_bool`), and Settings Visibility (`editable_enhanced_4g_lte_bool`, `editable_wfc_mode_bool`, `vonr_setting_visibility_bool`).
+* **`ImsRepository.kt`**:
+  - Persistent SharedPreferences storage (`autoroid_ims_carrier_config`) preserving customized IMS flags per SIM slot index.
+* **`ImsController.kt`**:
+  - Dual IPC execution engine:
+    - **Primary Path (Shizuku Binder IPC):** Direct calls to `ICarrierConfigLoader.overrideConfig(subId, bundle, persistent = false)` via `SystemServiceHelper.getSystemService("carrier_config")`.
+    - **Fallback Path (Elevated Shell IPC):** Elevated shell execution of `cmd phone cc set-value -s <slotId> <key> <value>` via `PrivilegeManager.executeElevated()`.
+  - Supports applying overrides to individual SIM slots or batch-applying to all active SIMs at once.
+  - Full carrier reset functionality via `cmd phone cc clear-values`.
+
+### 2. Automatic Persistence Across Device Reboots
+* **`BootReceiver.kt` & `AutoroidApp.kt`**:
+  - Wired into `ACTION_BOOT_COMPLETED` and `ACTION_MY_PACKAGE_REPLACED`.
+  - Automatically queries active SIMs (Physical SIM + eSIM) and re-injects saved carrier overrides on system startup without requiring third-party tools like Turbo IMS or manual screen interaction.
+
+### 3. Cyberpunk UI Integration
+* **`ImsCarrierPatcherCard.kt`**:
+  - Cyberpunk-styled card with glowing gradient borders and microchip SIM tabs (`Physical SIM` vs `eSIM`).
+  - Live status banner indicating whether overrides are active and persisted.
+  - Interactive switches with explanatory subtitles for VoLTE, VoWiFi, 5G VoNR, Ut Interface, and Settings Toggle Visibility.
+  - Quick action buttons: `[ APPLY TO SIM ]`, `[ ⚡ APPLY TO ALL SIMS ]`, and `[ ↺ RESET ]`.
+* **`FeatureInfoDialog.kt`**:
+  - Added dedicated `CARRIER_IMS_PATCHER` user guide detailing Pixel carrier bypasses, regional whitelisting, and boot restoration.
+* **`HomeScreen.kt` & `MainViewModel.kt`**:
+  - Mounted `ImsCarrierPatcherCard` and wired reactive state management with snackbar feedback.
+
+### 4. Version Bump
+* **`app/build.gradle.kts`**: Bumped `versionCode = 9` and `versionName = "1.2.8"`.
+
+

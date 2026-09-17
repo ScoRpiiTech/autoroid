@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.SettingsCell
 import androidx.compose.material.icons.filled.SimCard
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.TouchApp
@@ -171,6 +172,26 @@ enum class FeatureHelpType(
         tips = listOf(
             "This overlay is rendered directly by the Android OS compositor with zero lag.",
             "Requires Root or Shizuku permission to toggle system developer settings."
+        )
+    ),
+    CARRIER_IMS_PATCHER(
+        title = "Carrier & IMS Patcher",
+        subtitle = "Pixel VoLTE, VoWiFi & 5G VoNR Enabler",
+        icon = Icons.Default.SettingsCell,
+        accentColor = CyberCyan,
+        summary = "Bypasses Google's regional carrier whitelists to unlock VoLTE, Wi-Fi Calling (VoWiFi), and 5G VoNR on Google Pixel devices.",
+        whyNeeded = "Google restricts VoLTE, VoWiFi, and 5G on Pixel phones in unsupported countries (e.g. Pakistan). Android also wipes carrier config overrides on every phone reboot. Autoroid integrates full CarrierConfig overrides and automatically re-applies them on boot so you no longer need Turbo IMS.",
+        steps = listOf(
+            "Select your SIM slot: customize settings for SIM 1 (Physical SIM) and SIM 2 (eSIM) independently.",
+            "Toggle desired features: VoLTE, Wi-Fi Calling, 5G VoNR, and Settings Toggle Visibility.",
+            "Tap 'APPLY TO SIM' (or 'APPLY TO ALL SIMS' to patch both physical and eSIM simultaneously).",
+            "Check Android Settings -> Network & Internet -> SIMs: VoLTE and Wi-Fi Calling switches are now available and active!",
+            "When your phone reboots, Autoroid's BootReceiver automatically re-injects all saved overrides in the background."
+        ),
+        tips = listOf(
+            "Eliminates the need for Turbo IMS or Pixel IMS entirely.",
+            "Uses safe in-memory overrides that comply with Android 14/15/16 security rules without crashing com.android.phone.",
+            "Works via Shizuku (ADB) or Root."
         )
     )
 }

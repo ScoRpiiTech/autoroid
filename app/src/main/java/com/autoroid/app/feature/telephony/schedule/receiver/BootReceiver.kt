@@ -18,6 +18,7 @@ class BootReceiver : BroadcastReceiver() {
                 try {
                     val app = context.applicationContext as? AutoroidApp
                     app?.simScheduleManager?.onBoot()
+                    app?.imsController?.onBoot()
                 } finally {
                     pendingResult.finish()
                 }
