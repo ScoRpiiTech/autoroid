@@ -442,5 +442,22 @@
 ### 3. Version Bump
 * **`app/build.gradle.kts`**: Bumped `versionCode = 11` and `versionName = "1.2.10"`.
 
+---
+
+## [v1.2.11] - Rate-Limit-Free Atom Feed Fallback for App Updates
+* **Date:** 2026-09-18
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
+
+### 1. Bypass GitHub API Rate Limits
+* **Problem:** GitHub REST API (`api.github.com`) restricts unauthenticated requests to 60 per hour per IP. On mobile cellular carrier networks (CGNAT) or shared Wi-Fi, multiple devices share a single IPv4 address, quickly triggering `403 rate limit exceeded`.
+* **Solution:**
+  - Implemented automatic fallback to GitHub's public Atom feed (`https://github.com/$OWNER/$REPO/releases.atom`).
+  - Atom feeds are public web feeds served without rate limiting or authentication requirements.
+  - Automatically parses latest release tag, publication timestamp, and HTML release notes via `android.text.Html`.
+  - When `api.github.com` returns HTTP 403, 429, or network errors, `UpdateManager` transparently falls back to the Atom feed within milliseconds without failing or bothering the user.
+
+### 2. Version Bump
+* **`app/build.gradle.kts`**: Bumped `versionCode = 12` and `versionName = "1.2.11"`.
+
 
 

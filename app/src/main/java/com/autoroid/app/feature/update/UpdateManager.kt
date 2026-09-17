@@ -8,6 +8,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.text.Html
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import com.autoroid.app.core.privilege.PrivilegeLevel
@@ -122,6 +124,12 @@ class UpdateManager(
             }
 
             if (conn.responseCode != 200) {
+                Log.w("UpdateManager", "GitHub API returned HTTP ${conn.responseCode}, falling back to rate-limit-free Atom feed...")
+                val atomFallback = fetchFromAtomFeed()
+                if (atomFallback != null) {
+                    return@withContext atomFallback
+                }
+
                 val errorMsg = when (conn.responseCode) {
                     404 -> "No GitHub releases found on repository."
                     403 -> "GitHub API rate limit reached. Please wait a moment."
@@ -155,6 +163,10 @@ class UpdateManager(
             }
 
             if (targetRelease == null || newestTag.isBlank()) {
+                val atomFallback = fetchFromAtomFeed()
+                if (atomFallback != null) {
+                    return@withContext atomFallback
+                }
                 _updateStatus.value = UpdateStatus(
                     state = UpdateState.UP_TO_DATE,
                     message = "Autoroid is up to date ($currentVersion)"
@@ -224,10 +236,96 @@ class UpdateManager(
 
             info
         } catch (e: Exception) {
+            Log.w("UpdateManager", "GitHub API check failed (${e.message}), attempting Atom feed fallback...")
+            val atomFallback = fetchFromAtomFeed()
+            if (atomFallback != null) {
+                return@withContext atomFallback
+            }
             _updateStatus.value = UpdateStatus(
                 state = UpdateState.ERROR,
                 message = "Failed to check update: ${e.localizedMessage}"
             )
+            null
+        }
+    }
+
+    /**
+     * Rate-limit-free fallback using GitHub's public Atom feed (`releases.atom`).
+     * This endpoint does not require an API token and has no 60-req/hour rate limits.
+     */
+    private suspend fun fetchFromAtomFeed(): UpdateInfo? = withContext(Dispatchers.IO) {
+        try {
+            val atomUrl = "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases.atom"
+            val conn = (URL(atomUrl).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                setRequestProperty("User-Agent", "Mozilla/5.0 Autoroid-App")
+                connectTimeout = 8000
+                readTimeout = 8000
+            }
+            if (conn.responseCode != 200) return@withContext null
+            val xml = conn.inputStream.bufferedReader().use { it.readText() }
+
+            val entryRegex = Regex("<entry>(.*?)</entry>", RegexOption.DOT_MATCHES_ALL)
+            val match = entryRegex.find(xml) ?: return@withContext null
+            val entry = match.groupValues[1]
+
+            val tagMatch = Regex("""/tag/([^"'\s>]+)""").find(entry)
+                ?: Regex("""<id>[^<]*/([^/<]+)</id>""").find(entry)
+            val tagName = tagMatch?.groupValues?.get(1)?.trim() ?: return@withContext null
+
+            val updatedMatch = Regex("""<updated>(.*?)</updated>""").find(entry)
+            val publishedAt = updatedMatch?.groupValues?.get(1)?.trim().orEmpty()
+
+            val contentMatch = Regex("""<content type="html">(.*?)</content>""", RegexOption.DOT_MATCHES_ALL).find(entry)
+            val rawHtml = contentMatch?.groupValues?.get(1).orEmpty()
+            val cleanNotes = if (rawHtml.isNotBlank()) {
+                Html.fromHtml(rawHtml, Html.FROM_HTML_MODE_LEGACY).toString().trim()
+            } else {
+                "New release $tagName available on GitHub."
+            }
+
+            val downloadUrl = "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/download/$tagName/app-release.apk"
+
+            val updatesDir = File(context.cacheDir, "updates")
+            val apkFile = File(updatesDir, "autoroid-update.apk")
+            val isDownloaded = isApkDownloaded(apkFile, tagName)
+
+            val isNewer = isNewerVersion(tagName, currentVersion)
+            val finalReleaseNotes = if (isNewer) {
+                resolveReleaseNotes(cleanNotes, tagName)
+            } else {
+                resolveReleaseNotes(cleanNotes, currentVersion)
+            }
+
+            val info = UpdateInfo(
+                latestVersion = tagName,
+                releaseNotes = finalReleaseNotes,
+                downloadUrl = downloadUrl,
+                hasUpdate = isNewer,
+                publishedAt = publishedAt,
+                isDownloaded = isDownloaded
+            )
+
+            if (info.hasUpdate) {
+                _updateStatus.value = UpdateStatus(
+                    state = UpdateState.AVAILABLE,
+                    updateInfo = info,
+                    message = if (isDownloaded) "Update $tagName is downloaded and ready to install!" else "New version $tagName available!"
+                )
+                showUpdateNotification(info)
+            } else {
+                purgeAllUpdateFiles()
+                cancelUpdateNotification()
+                _updateStatus.value = UpdateStatus(
+                    state = UpdateState.UP_TO_DATE,
+                    updateInfo = info,
+                    message = "Autoroid is up to date ($currentVersion)"
+                )
+            }
+
+            info
+        } catch (e: Exception) {
+            Log.e("UpdateManager", "Atom feed check failed", e)
             null
         }
     }
