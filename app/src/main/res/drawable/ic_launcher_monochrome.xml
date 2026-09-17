@@ -1,0 +1,24 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer Cyber Shield Contour -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,22 L79,33 L79,58 C79,72 68,81 54,86 C40,81 29,72 29,58 L29,33 Z M54,26.5 L33.5,35.6 L33.5,57.5 C33.5,69.5 42.5,77.5 54,81.8 C65.5,77.5 74.5,69.5 74.5,57.5 L74.5,35.6 Z"/>
+    <!-- Stylized Cyber 'A' Frame -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,30 L69,67 L62,67 L57.5,56 L50.5,56 L46,67 L39,67 Z M54,40.5 L51.8,51.5 L56.2,51.5 Z"/>
+    <!-- Core Microchip Processor -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M49,50 L59,50 A2,2 0 0,1 61,52 L61,62 A2,2 0 0,1 59,64 L49,64 A2,2 0 0,1 47,52 L47,52 A2,2 0 0,1 49,50 Z"/>
+    <!-- Circuit Pin Traces -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M47,54 L43,54 M47,57 L43,57 M47,60 L43,60 M61,54 L65,54 M61,57 L65,57 M61,60 L65,60 M52,64 L52,68 M56,64 L56,68"/>
+</vector>

@@ -241,7 +241,9 @@ Whenever a version tag (`v*`) is pushed:
 │           │   ├── data_extraction_rules.xml
 │           │   └── file_paths.xml           # FileProvider paths for updates
 │           ├── values/                      # strings.xml, themes.xml, colors.xml
-│           ├── drawable/                    # ic_shield.xml, ic_sim_card.xml
-│           └── mipmap-anydpi-v26/           # ic_launcher.xml, ic_launcher_round.xml
+│           ├── drawable/                    # ic_launcher_background.xml, ic_launcher_monochrome.xml, ic_shield.xml
+│           ├── drawable-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ # ic_launcher_foreground.png (Adaptive icon layer)
+│           ├── mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/   # ic_launcher.png, ic_launcher_round.png (Raster mipmaps)
+│           └── mipmap-anydpi-v26/           # ic_launcher.xml, ic_launcher_round.xml (Adaptive icon definitions)
 ```
 
