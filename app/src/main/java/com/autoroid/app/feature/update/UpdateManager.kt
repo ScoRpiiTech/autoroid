@@ -112,7 +112,7 @@ class UpdateManager(
             val json = JSONObject(response)
 
             val tagName = json.optString("tag_name", "")
-            val releaseNotes = json.optString("body", "No release notes provided.")
+            val rawReleaseNotes = json.optString("body", "No release notes provided.")
             val publishedAt = json.optString("published_at", "")
 
             var downloadUrl = ""
@@ -133,9 +133,15 @@ class UpdateManager(
             val isDownloaded = isApkDownloaded(apkFile, tagName)
 
             val isNewer = isNewerVersion(tagName, currentVersion)
+            val finalReleaseNotes = if (isNewer) {
+                resolveReleaseNotes(rawReleaseNotes, tagName)
+            } else {
+                resolveReleaseNotes(rawReleaseNotes, currentVersion)
+            }
+
             val info = UpdateInfo(
                 latestVersion = tagName,
-                releaseNotes = releaseNotes,
+                releaseNotes = finalReleaseNotes,
                 downloadUrl = downloadUrl,
                 hasUpdate = isNewer && downloadUrl.isNotBlank(),
                 publishedAt = publishedAt,
@@ -166,6 +172,51 @@ class UpdateManager(
             )
             null
         }
+    }
+
+    fun extractChangelogForVersion(fullChangelog: String, targetVersion: String): String? {
+        val cleanVersion = targetVersion.trim().removePrefix("v").removePrefix("V")
+        val regex = Regex("""## \[(?:v)?${Regex.escape(cleanVersion)}\].*?(?=(?:\n## \[|\Z))""", RegexOption.DOT_MATCHES_ALL)
+        val match = regex.find(fullChangelog)
+        return match?.value?.trim()
+    }
+
+    fun resolveReleaseNotes(candidateNotes: String, targetVersion: String): String {
+        val trimmed = candidateNotes.trim()
+        val isGenericOrUrl = trimmed.isBlank() ||
+            trimmed == "No release notes provided." ||
+            trimmed.startsWith("**Full Changelog**") ||
+            (trimmed.contains("compare/") && trimmed.lines().size <= 3)
+
+        if (!isGenericOrUrl) {
+            return trimmed
+        }
+
+        // 1. Try local bundled asset from build
+        try {
+            context.assets.open("CHANGELOG.md").bufferedReader().use { reader ->
+                val localText = reader.readText()
+                val extracted = extractChangelogForVersion(localText, targetVersion)
+                if (!extracted.isNullOrBlank()) return extracted
+            }
+        } catch (_: Exception) {}
+
+        // 2. Try fetching raw CHANGELOG.md from GitHub repository
+        try {
+            val changelogUrl = URL("https://raw.githubusercontent.com/$GITHUB_OWNER/$GITHUB_REPO/main/CHANGELOG.md")
+            val conn = (changelogUrl.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 5000
+                readTimeout = 5000
+            }
+            if (conn.responseCode == 200) {
+                val remoteText = conn.inputStream.bufferedReader().use { it.readText() }
+                val extracted = extractChangelogForVersion(remoteText, targetVersion)
+                if (!extracted.isNullOrBlank()) return extracted
+            }
+        } catch (_: Exception) {}
+
+        return if (trimmed.isNotBlank()) trimmed else "No detailed release notes provided."
     }
 
     suspend fun downloadAndInstall(updateInfo: UpdateInfo) = withContext(Dispatchers.IO) {

@@ -134,3 +134,12 @@ dependencies {
 
     debugImplementation(libs.androidx.ui.tooling)
 }
+
+tasks.register<Copy>("copyChangelogToAssets") {
+    from("${rootDir}/CHANGELOG.md")
+    into("${projectDir}/src/main/assets")
+}
+
+tasks.named("preBuild") {
+    dependsOn("copyChangelogToAssets")
+}

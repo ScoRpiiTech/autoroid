@@ -65,6 +65,31 @@ jobs:
       - name: Build Signed Release APK
         run: ./gradlew assembleRelease --no-daemon
 
+      - name: Extract Release Notes from CHANGELOG.md
+        id: changelog
+        run: |
+          python3 -c "
+          import re
+          tag = '${{ steps.vars.outputs.tag }}'
+          version = tag.lstrip('v')
+          try:
+              with open('CHANGELOG.md', 'r') as f:
+                  content = f.read()
+              pattern = rf'## \[(?:v)?{re.escape(version)}\].*?(?=(?:\n## \[|\Z))'
+              match = re.search(pattern, content, re.DOTALL)
+              if match:
+                  notes = match.group(0).strip()
+                  with open('release_notes.md', 'w') as out:
+                      out.write(notes + '\n')
+                  print('Extracted changelog for ' + tag)
+              else:
+                  with open('release_notes.md', 'w') as out:
+                      out.write('### Autoroid ' + tag + '\n\nAutomated release build.\n')
+          except Exception as e:
+              with open('release_notes.md', 'w') as out:
+                  out.write('### Autoroid ' + tag + '\n\nAutomated release build.\n')
+          "
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
@@ -72,7 +97,7 @@ jobs:
           tag_name: ${{ steps.vars.outputs.tag }}
           name: "Autoroid ${{ steps.vars.outputs.tag }}"
           files: app/build/outputs/apk/release/app-release.apk
-          generate_release_notes: true
+          body_path: release_notes.md
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -349,29 +349,32 @@ fun UpdateStatusDialog(
                 if (info != null && info.releaseNotes.isNotBlank() && info.releaseNotes != "No release notes provided.") {
                     Spacer(modifier = Modifier.height(14.dp))
                     Text(
-                        text = "RELEASE NOTES",
+                        text = if (state == UpdateState.AVAILABLE)
+                            "RELEASE NOTES (${info.latestVersion})"
+                        else
+                            "VERSION CHANGELOG (v$currentVersion)",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = TextSecondary,
+                        color = if (state == UpdateState.AVAILABLE) NeonGreen else CyberCyan,
                         letterSpacing = 1.sp
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 140.dp)
+                            .heightIn(max = 240.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .background(DeepBackground)
                             .border(1.dp, CardBorder, RoundedCornerShape(10.dp))
-                            .padding(10.dp)
+                            .padding(12.dp)
                             .verticalScroll(rememberScrollState())
                     ) {
                         Text(
                             text = info.releaseNotes.trim(),
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
-                            color = TextSecondary,
-                            lineHeight = 16.sp
+                            color = TextPrimary,
+                            lineHeight = 17.sp
                         )
                     }
                 }
