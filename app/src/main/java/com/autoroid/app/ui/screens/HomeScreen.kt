@@ -42,6 +42,7 @@ import androidx.compose.material3.OutlinedButton
 import com.autoroid.app.feature.update.model.UpdateState
 import com.autoroid.app.feature.update.ui.UpdateBannerCard
 import com.autoroid.app.feature.update.ui.UpdateStatusDialog
+import com.autoroid.app.feature.telephony.ui.SimScheduleCard
 import com.autoroid.app.feature.workflow.model.Workflow
 import com.autoroid.app.feature.workflow.ui.WorkflowCard
 import com.autoroid.app.feature.workflow.ui.WorkflowEditorDialog
@@ -99,6 +100,7 @@ fun HomeScreen(
     val pausedServices by viewModel.pausedServicesList.collectAsState()
     val simSlots by viewModel.simSlots.collectAsState()
     val activeDataSubId by viewModel.activeDataSubId.collectAsState()
+    val simSchedule by viewModel.simSchedule.collectAsState()
     val nativeVer by viewModel.nativeVersion.collectAsState()
     val logs by viewModel.consoleLogs.collectAsState()
     val isBusy by viewModel.isBusy.collectAsState()
@@ -259,6 +261,18 @@ fun HomeScreen(
                     onToggle = { viewModel.toggleAlternateSim() },
                     onSelectSubId = { viewModel.switchToSubId(it) },
                     onHelpClick = { activeHelpType = FeatureHelpType.SIM_SWITCHER }
+                )
+            }
+
+            // Milestone 1 Feature: Automated Scheduled SIM Data Switcher
+            item {
+                SimScheduleCard(
+                    schedule = simSchedule,
+                    simSlots = simSlots,
+                    activeSubId = activeDataSubId,
+                    onUpdateSchedule = { viewModel.updateSimSchedule(it) },
+                    onToggleSchedule = { viewModel.toggleSimSchedule(it) },
+                    onHelpClick = { activeHelpType = FeatureHelpType.SIM_SCHEDULE }
                 )
             }
 

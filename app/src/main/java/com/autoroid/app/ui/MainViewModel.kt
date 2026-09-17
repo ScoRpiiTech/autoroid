@@ -26,6 +26,7 @@ class MainViewModel : ViewModel() {
     private val workflowRunner = AutoroidApp.instance.workflowRunner
     private val pointerLocationHelper = AutoroidApp.instance.pointerLocationHelper
     private val updateManager = AutoroidApp.instance.updateManager
+    private val simScheduleManager = AutoroidApp.instance.simScheduleManager
 
     val privilegeLevel: StateFlow<PrivilegeLevel> = privilegeManager.currentLevel
     val isBankModeActive: StateFlow<Boolean> = accessibilityController.isBankModeActive
@@ -33,6 +34,7 @@ class MainViewModel : ViewModel() {
     val pausedServicesList: StateFlow<List<String>> = accessibilityController.pausedServicesList
     val simSlots: StateFlow<List<SimSlotInfo>> = telephonyController.simSlots
     val activeDataSubId: StateFlow<Int?> = telephonyController.activeDataSubId
+    val simSchedule: StateFlow<com.autoroid.app.feature.telephony.schedule.model.SimSchedule> = simScheduleManager.schedule
     val workflows: StateFlow<List<com.autoroid.app.feature.workflow.model.Workflow>> = workflowRepository.workflows
     val executionState: StateFlow<com.autoroid.app.feature.workflow.runner.ExecutionState> = workflowRunner.executionState
     val isPointerLocationActive: StateFlow<Boolean> = pointerLocationHelper.isPointerLocationActive
@@ -252,6 +254,28 @@ class MainViewModel : ViewModel() {
                 log("SIM switch failed: $err")
             }
             _isBusy.value = false
+        }
+    }
+
+    fun updateSimSchedule(schedule: com.autoroid.app.feature.telephony.schedule.model.SimSchedule) {
+        viewModelScope.launch {
+            simScheduleManager.updateSchedule(schedule)
+            val windowSim = simSlots.value.firstOrNull { it.subscriptionId == schedule.windowSubId }?.displayLabel ?: "SIM ${schedule.windowSubId}"
+            val defaultSim = simSlots.value.firstOrNull { it.subscriptionId == schedule.defaultSubId }?.displayLabel ?: "SIM ${schedule.defaultSubId}"
+            _uiEvent.emit("⏰ Schedule saved: ${schedule.formattedStartTime} - ${schedule.formattedEndTime} ($windowSim) / Other: ($defaultSim)")
+            log("SIM Schedule updated: ${schedule.formattedStartTime} - ${schedule.formattedEndTime} enabled=${schedule.isEnabled}")
+        }
+    }
+
+    fun toggleSimSchedule(enabled: Boolean) {
+        viewModelScope.launch {
+            simScheduleManager.toggleSchedule(enabled)
+            if (enabled) {
+                _uiEvent.emit("⏰ SIM Auto-Schedule ENABLED.")
+            } else {
+                _uiEvent.emit("⏰ SIM Auto-Schedule PAUSED.")
+            }
+            log("SIM Auto-Schedule: ${if (enabled) "ENABLED" else "PAUSED"}")
         }
     }
 

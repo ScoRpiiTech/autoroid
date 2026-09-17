@@ -266,3 +266,51 @@
 ### 3. Version Bump
 * **`app/build.gradle.kts`**: Bumped `versionCode = 6` and `versionName = "1.2.5"`.
 
+---
+
+## [v1.2.6] - Automated Scheduled SIM Data Switcher (Time Windows & Off-Peak Bundles)
+* **Date:** 2026-09-17
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
+
+### 1. Automated SIM Schedule Engine & Midnight Windowing
+* **`SimSchedule.kt`**:
+  - Encapsulates scheduling state: `isEnabled`, `startHour`, `startMinute`, `endHour`, `endMinute`, `windowSubId`, and `defaultSubId`.
+  - Circular 24-hour time window evaluator (`isTimeInWindow`): accurately computes whether current time falls within off-peak windows crossing midnight (e.g., `12:00 AM – 09:00 AM` or `11:00 PM – 07:00 AM`).
+  - AM/PM time formatting utilities for clean 12-hour digital displays.
+* **`SimScheduleRepository.kt`**:
+  - Persistent state storage in private preferences (`autoroid_sim_schedule`).
+  - Reactive `StateFlow<SimSchedule>` updates.
+* **`SimScheduleManager.kt`**:
+  - Core scheduling manager orchestrating background execution.
+  - Automatically evaluates current time window on enable, boot, or alarm triggers and switches data line using elevated `TelephonyController.switchToSubId()`.
+  - Dispatches non-intrusive Android status notifications informing the user when automated switches occur.
+  - Computes exact millisecond timestamps and arms next transitions using `AlarmManager.setExactAndAllowWhileIdle()`.
+
+### 2. Deep Doze & Reboot Recovery
+* **`SimScheduleReceiver.kt`**:
+  - Wakeful `BroadcastReceiver` invoked by `AlarmManager.RTC_WAKEUP`.
+  - Acquires a short `PowerManager.PARTIAL_WAKE_LOCK` (10s max) via `goAsync()` to guarantee CPU execution through Android Deep Doze even when device is stationary and locked overnight.
+* **`BootReceiver.kt`**:
+  - Listens for `BOOT_COMPLETED` and `MY_PACKAGE_REPLACED`.
+  - Automatically restores alarms on boot and immediately applies the correct SIM for the current time.
+* **`AndroidManifest.xml`**:
+  - Declared `RECEIVE_BOOT_COMPLETED`, `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`, `WAKE_LOCK`, and `POST_NOTIFICATIONS` permissions.
+  - Registered receivers for alarms and reboot recovery.
+
+### 3. Modern Cyberpunk UI Components
+* **`TimePickerDialog.kt`**:
+  - Digital clock dialog with large cyberpunk digital display, hour/minute steppers, and AM/PM filter chips.
+* **`SimScheduleCard.kt`**:
+  - Integrated into the Dual-SIM dashboard.
+  - Master ON/OFF toggle switch.
+  - Live status banner indicating active window state, currently routed SIM, and upcoming switch time.
+  - Start & End time picker chips with 1-tap dialogs.
+  - Quick SIM selector chips for both within-window and daytime/default hours.
+* **`FeatureInfoDialog.kt`**:
+  - Added dedicated `SIM_SCHEDULE` guide explaining night data bundle automation, setup steps, and troubleshooting.
+* **`HomeScreen.kt` & `MainViewModel.kt`**:
+  - Wired reactive `simSchedule` flow, `updateSimSchedule()`, and `toggleSimSchedule()` with user snackbar feedback.
+
+### 4. Version Bump
+* **`app/build.gradle.kts`**: Bumped `versionCode = 7` and `versionName = "1.2.6"`.
+

@@ -78,7 +78,14 @@ Whenever code is pushed to `main` or a `v*` tag is created:
    - Resolves active data SIM via `SubscriptionManager.getDefaultDataSubscriptionId()`, `Settings.Global.multi_sim_data_call`, and elevated `dumpsys telephony.registry`.
    - Switches default mobile data using direct Shizuku Binder IPC (`ISub.setDefaultDataSubId(subId)` + `ITelephony.setDataEnabledForReason`), with fallbacks to `multi_sim_data_call` and `cmd phone`.
    - Uses `org.lsposed.hiddenapibypass:hiddenapibypass:4.3` to access hidden telephony APIs on Android 10-16.
-3. **Quick Settings Tiles (`feature/tiles`)**:
+3. **Automated Scheduled SIM Data Switcher (`feature/telephony/schedule`)**:
+   - **`SimSchedule.kt`**: Circular 24-hour time range calculation (`isTimeInWindow`) handling midnight rollovers (e.g. 12:00 AM – 9:00 AM off-peak bundles, or 11:00 PM – 7:00 AM).
+   - **`SimScheduleRepository.kt`**: SharedPreferences persistent storage (`autoroid_sim_schedule`).
+   - **`SimScheduleManager.kt`**: Background coordinator. Calculates next transitions, schedules exact alarms via `AlarmManager.setExactAndAllowWhileIdle()`, applies elevated modem switches, and issues notification updates.
+   - **`SimScheduleReceiver.kt`**: Wakeful broadcast receiver (`PowerManager.PARTIAL_WAKE_LOCK`) surviving Android Deep Doze.
+   - **`BootReceiver.kt`**: Restores alarms upon device reboot (`BOOT_COMPLETED`) and updates.
+   - **`SimScheduleCard.kt`**: Embedded dashboard card with master toggle, time pickers, SIM selector chips, and live status badges.
+4. **Quick Settings Tiles (`feature/tiles`)**:
    - `BankModeTileService`: Quick Settings tile displaying real-time protected/running/clean state.
    - `SimSwitchTileService`: Quick Settings tile showing active SIM type and carrier name for 1-tap switching.
 
@@ -164,7 +171,18 @@ Whenever code is pushed to `main` or a `v*` tag is created:
 │       │   │   ├── accessibility/
 │       │   │   │   └── AccessibilityController.kt # Bank Mode
 │       │   │   ├── telephony/
-│       │   │   │   └── TelephonyController.kt     # Dual-SIM Switcher
+│       │   │   │   ├── TelephonyController.kt     # Dual-SIM Switcher
+│       │   │   │   ├── schedule/
+│       │   │   │   │   ├── SimScheduleManager.kt  # Scheduling coordinator & exact alarm engine
+│       │   │   │   │   ├── model/
+│       │   │   │   │   │   └── SimSchedule.kt     # Schedule data model & midnight rollover
+│       │   │   │   │   ├── receiver/
+│       │   │   │   │   │   ├── BootReceiver.kt    # Boot & package restore receiver
+│       │   │   │   │   │   └── SimScheduleReceiver.kt # Wakeful alarm trigger receiver
+│       │   │   │   │   └── repository/
+│       │   │   │   │       └── SimScheduleRepository.kt # SharedPreferences persistence
+│       │   │   │   └── ui/
+│       │   │   │       └── SimScheduleCard.kt     # Scheduled SIM switching card
 │       │   │   ├── tiles/
 │       │   │   │   ├── BankModeTileService.kt     # Quick Settings Bank Mode tile
 │       │   │   │   └── SimSwitchTileService.kt    # Quick Settings SIM Switch tile
@@ -192,7 +210,8 @@ Whenever code is pushed to `main` or a `v*` tag is created:
 │       │       ├── MainActivity.kt          # Host activity & Shizuku permission listener
 │       │       ├── MainViewModel.kt         # Reactive state manager (StateFlow)
 │       │       ├── dialogs/
-│       │       │   └── FeatureInfoDialog.kt # Interactive help & architectural guide dialogs
+│       │       │   ├── FeatureInfoDialog.kt # Interactive help & architectural guide dialogs
+│       │       │   └── TimePickerDialog.kt  # Cyberpunk digital clock picker dialog
 │       │       ├── theme/Theme.kt           # Cyber dark Material 3 theme
 │       │       └── screens/HomeScreen.kt    # Primary Compose dashboard
 │       └── res/

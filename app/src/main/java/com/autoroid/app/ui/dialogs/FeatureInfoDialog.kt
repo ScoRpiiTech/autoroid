@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdsClick
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SimCard
 import androidx.compose.material.icons.filled.Terminal
@@ -112,6 +113,27 @@ enum class FeatureHelpType(
         tips = listOf(
             "Both Physical SIMs and eSIMs are fully supported.",
             "If connected to Wi-Fi, your phone will stay on Wi-Fi, but the cellular data default line switches immediately in the background."
+        )
+    ),
+    SIM_SCHEDULE(
+        title = "Auto SIM Scheduler",
+        subtitle = "Time-Windowed Data Bundles & Off-Peak Switching",
+        icon = Icons.Default.Schedule,
+        accentColor = NeonGreen,
+        summary = "Automatically switches mobile data between SIM cards during scheduled time windows (e.g. night/off-peak data bundles).",
+        whyNeeded = "Many carriers offer unlimited or high-speed data bundles restricted to off-peak hours (e.g. 12:00 AM to 9:00 AM). Autoroid automatically switches to your off-peak SIM while you sleep, and switches back to your primary daytime line in the morning.",
+        steps = listOf(
+            "Turn ON the 'Auto SIM Scheduler' master switch.",
+            "Tap 'FROM' to set your window start time (e.g. 12:00 AM).",
+            "Tap 'TO' to set your window end time (e.g. 09:00 AM).",
+            "Select which SIM to route data to during the window (e.g. eSIM night bundle).",
+            "Select which SIM to route data to for all other hours (e.g. Physical SIM day line).",
+            "Autoroid handles exact background switching, Android Deep Doze, and reboots automatically."
+        ),
+        tips = listOf(
+            "Supports midnight rollovers (e.g. 11:00 PM to 07:00 AM, or 12:00 AM to 09:00 AM).",
+            "Works completely offline without needing your phone screen to be on.",
+            "Survives device reboots automatically."
         )
     ),
     WORKFLOWS(
