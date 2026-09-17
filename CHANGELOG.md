@@ -189,8 +189,12 @@
 * **`UpdateStatusDialog.kt`**:
   - Dynamically updates action button between `"Install Update"` (when already cached) and `"Download & Install"` (when pending download).
   - Updates status badge to `"Release vX.X.X is downloaded and ready to install!"`.
-* **`UpdateBannerCard.kt`**:
-  - Shows `"Downloaded • Ready to install"` and `"SELF-INSTALL UPDATE"` button when package is present locally.
+### 5. Automated Storage & APK Purging
+* **`UpdateManager.kt`**:
+  - Added `purgeInstalledOrStaleApks()` executed at application startup to delete leftover update APKs once installed.
+  - Added `purgeAllUpdateFiles()` immediately upon successful elevated installation before app restart, and whenever status reports up-to-date.
+  - Ensures no 40MB+ update packages linger on device storage after installation.
+
 
 
 

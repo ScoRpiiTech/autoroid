@@ -36,12 +36,40 @@ class UpdateManager(
         private const val API_URL = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest"
     }
 
+    init {
+        purgeInstalledOrStaleApks()
+    }
+
     val currentVersion: String
         get() = try {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.2.3"
         } catch (_: Exception) {
             "1.2.3"
         }
+
+    fun purgeAllUpdateFiles() {
+        try {
+            val updatesDir = File(context.cacheDir, "updates")
+            if (updatesDir.exists()) {
+                updatesDir.listFiles()?.forEach { it.delete() }
+            }
+        } catch (_: Exception) {}
+    }
+
+    fun purgeInstalledOrStaleApks() {
+        try {
+            val updatesDir = File(context.cacheDir, "updates")
+            if (!updatesDir.exists()) return
+            val apkFile = File(updatesDir, "autoroid-update.apk")
+            if (apkFile.exists()) {
+                val archiveInfo = context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)
+                val archiveVer = archiveInfo?.versionName
+                if (archiveVer == null || !isNewerVersion(archiveVer, currentVersion)) {
+                    apkFile.delete()
+                }
+            }
+        } catch (_: Exception) {}
+    }
 
     fun isApkDownloaded(apkFile: File, targetTag: String): Boolean {
         if (!apkFile.exists() || apkFile.length() <= 0) return false
@@ -122,9 +150,7 @@ class UpdateManager(
                 )
             } else {
                 // If already on latest, clean up any old cached update APK
-                if (apkFile.exists()) {
-                    try { apkFile.delete() } catch (_: Exception) {}
-                }
+                purgeAllUpdateFiles()
                 _updateStatus.value = UpdateStatus(
                     state = UpdateState.UP_TO_DATE,
                     updateInfo = info,
@@ -291,6 +317,8 @@ class UpdateManager(
                 state = UpdateState.UP_TO_DATE,
                 message = "Update installed successfully! Restarting..."
             )
+            // Purge downloaded APK package immediately to free up device storage
+            purgeAllUpdateFiles()
             // Restart application
             privilegeManager.executeElevated("am start -n ${context.packageName}/.ui.MainActivity")
             return
