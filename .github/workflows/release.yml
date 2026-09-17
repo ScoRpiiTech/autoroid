@@ -49,20 +49,20 @@ jobs:
       - name: Make Gradlew Executable
         run: chmod +x ./gradlew
 
-      - name: Decode Production Keystore
-        if: env.HAS_KEYSTORE == 'true'
-        env:
-          HAS_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE_BASE64 != '' }}
-          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+      - name: Prepare Release Keystore
         run: |
-          echo "$RELEASE_KEYSTORE_BASE64" | base64 --decode > autoroid-release.jks
+          if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > autoroid-release.jks
+            echo "KEYSTORE_PASSWORD=${{ secrets.RELEASE_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          else
+            echo "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" | base64 --decode > autoroid-release.jks
+            echo "KEYSTORE_PASSWORD=autoroid123" >> $GITHUB_ENV
+          fi
+          echo "KEYSTORE_FILE=../autoroid-release.jks" >> $GITHUB_ENV
+          echo "KEY_ALIAS=key" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=autoroid123" >> $GITHUB_ENV
 
       - name: Build Signed Release APK
-        env:
-          KEYSTORE_FILE: ../autoroid-release.jks
-          KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS || 'key' }}
-          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD || secrets.RELEASE_KEYSTORE_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Publish GitHub Release
