@@ -326,3 +326,33 @@
 ### 5. Version Bump
 * **`app/build.gradle.kts`**: Bumped `versionCode = 7` and `versionName = "1.2.6"`.
 
+---
+
+## [v1.2.7] - Unified State-of-the-Art Dual-SIM & Modem Manager
+* **Date:** 2026-09-18
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
+
+### 1. Unified Information Architecture
+* **`DualSimManagerCard.kt`**:
+  - Combined the manual line switcher and the automated time scheduler into a single, cohesive modem management station.
+  - Eliminated UI redundancy and reduced screen clutter.
+  - Seamless segmented capsule controller allowing instant switching between `[ ⚡ Instant Switch ]` and `[ ⏰ Auto Schedule ]` modes.
+
+### 2. State-of-the-Art Cyberpunk Aesthetics & Microchip Cards
+* **Interactive Hardware SIM Slots**:
+  - Designed microchip cards representing Physical SIMs and eSIMs with antenna badges, carrier labels, and phone slot indicators.
+  - **Pulsing Neon Beacon**: Integrated an animated glowing pulse (`rememberInfiniteTransition`) on the active cellular data line (`[ACTIVE DATA]`).
+  - One-tap quick switching by tapping either hardware card directly.
+* **Modern Gradient Borders & Glassmorphism**:
+  - Outlined with subtle horizontal gradient strokes (`CyberCyan` $\to$ `CardBorder` $\to$ `NeonGreen`).
+  - Clean digital time window capsules (`FROM (START)` and `TO (END)`) with glowing cyan/green accents.
+  - Interactive SIM assignment pills for both within-window (off-peak) and default daytime lines.
+
+### 3. Screen Optimization
+* **`HomeScreen.kt`**:
+  - Replaced separate `SimSwitcherCard` and `SimScheduleCard` with `DualSimManagerCard`.
+  - Removed 220+ lines of legacy redundant card code from the main screen.
+
+### 4. Version Bump
+* **`app/build.gradle.kts`**: Bumped `versionCode = 8` and `versionName = "1.2.7"`.
+

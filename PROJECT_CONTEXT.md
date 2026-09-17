@@ -182,7 +182,7 @@ Whenever code is pushed to `main` or a `v*` tag is created:
 │       │   │   │   │   └── repository/
 │       │   │   │   │       └── SimScheduleRepository.kt # SharedPreferences persistence
 │       │   │   │   └── ui/
-│       │   │   │       └── SimScheduleCard.kt     # Scheduled SIM switching card
+│       │   │   │       └── DualSimManagerCard.kt  # Unified Modem Manager with manual switch & auto-scheduler
 │       │   │   ├── tiles/
 │       │   │   │   ├── BankModeTileService.kt     # Quick Settings Bank Mode tile
 │       │   │   │   └── SimSwitchTileService.kt    # Quick Settings SIM Switch tile

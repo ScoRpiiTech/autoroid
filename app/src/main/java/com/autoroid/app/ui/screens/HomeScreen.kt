@@ -42,7 +42,7 @@ import androidx.compose.material3.OutlinedButton
 import com.autoroid.app.feature.update.model.UpdateState
 import com.autoroid.app.feature.update.ui.UpdateBannerCard
 import com.autoroid.app.feature.update.ui.UpdateStatusDialog
-import com.autoroid.app.feature.telephony.ui.SimScheduleCard
+import com.autoroid.app.feature.telephony.ui.DualSimManagerCard
 import com.autoroid.app.feature.workflow.model.Workflow
 import com.autoroid.app.feature.workflow.ui.WorkflowCard
 import com.autoroid.app.feature.workflow.ui.WorkflowEditorDialog
@@ -253,26 +253,17 @@ fun HomeScreen(
                 )
             }
 
-            // Milestone 1 Feature: SIM Data Switcher
+            // Milestone 1 Feature: Unified Dual-SIM & Modem Manager
             item {
-                SimSwitcherCard(
+                DualSimManagerCard(
                     simSlots = simSlots,
                     activeSubId = activeDataSubId,
-                    onToggle = { viewModel.toggleAlternateSim() },
-                    onSelectSubId = { viewModel.switchToSubId(it) },
-                    onHelpClick = { activeHelpType = FeatureHelpType.SIM_SWITCHER }
-                )
-            }
-
-            // Milestone 1 Feature: Automated Scheduled SIM Data Switcher
-            item {
-                SimScheduleCard(
                     schedule = simSchedule,
-                    simSlots = simSlots,
-                    activeSubId = activeDataSubId,
+                    onToggleAlternateSim = { viewModel.toggleAlternateSim() },
+                    onSelectSubId = { viewModel.switchToSubId(it) },
                     onUpdateSchedule = { viewModel.updateSimSchedule(it) },
                     onToggleSchedule = { viewModel.toggleSimSchedule(it) },
-                    onHelpClick = { activeHelpType = FeatureHelpType.SIM_SCHEDULE }
+                    onHelpClick = { activeHelpType = FeatureHelpType.SIM_SWITCHER }
                 )
             }
 
@@ -709,224 +700,6 @@ fun BankModeCard(
                         activeServices.isNotEmpty() -> "ACTIVATE BANK MODE (PAUSE ${activeServices.size} SERVICES)"
                         else -> "ALL CLEAR • NO SERVICES ACTIVE"
                     },
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun SimSwitcherCard(
-    simSlots: List<com.autoroid.app.feature.telephony.SimSlotInfo>,
-    activeSubId: Int?,
-    onToggle: () -> Unit,
-    onSelectSubId: (Int) -> Unit,
-    onHelpClick: () -> Unit = {}
-) {
-    val alternateSim = simSlots.firstOrNull { it.subscriptionId != activeSubId && !it.isDefaultData }
-        ?: simSlots.firstOrNull { it.subscriptionId != activeSubId }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = CardSurface),
-        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(CardBorder))
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.SimCard,
-                        contentDescription = "SIM Switcher",
-                        tint = CyberCyan,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "Dual-SIM Data Switcher",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = "Active Data SubId: ${activeSubId ?: "Auto"}",
-                            fontSize = 11.sp,
-                            color = CyberCyan
-                        )
-                    }
-                }
-
-                IconButton(onClick = onHelpClick, modifier = Modifier.size(28.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.HelpOutline,
-                        contentDescription = "SIM Switcher Info",
-                        tint = TextSecondary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "Instant 1-tap mobile data switching between physical SIM and eSIM via elevated telephony IPC, bypassing Android Settings menus.",
-                fontSize = 13.sp,
-                color = TextSecondary,
-                lineHeight = 18.sp
-            )
-
-            if (simSlots.size < 2) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Surface(
-                    color = AmberWarn.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, AmberWarn.copy(alpha = 0.3f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = AmberWarn,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (simSlots.isEmpty())
-                                "No SIMs detected yet • Grant Phone permission or connect Shizuku."
-                            else
-                                "Only 1 SIM detected (${simSlots.first().simType}) • Dual-SIM switcher requires 2 active lines.",
-                            fontSize = 11.sp,
-                            color = AmberWarn,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-
-            if (simSlots.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                simSlots.forEach { slot ->
-                    val isCurrent = (slot.subscriptionId == activeSubId) || slot.isDefaultData
-                    Surface(
-                        onClick = { onSelectSubId(slot.subscriptionId) },
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (isCurrent) NeonGreen.copy(alpha = 0.08f) else CardSurface,
-                        border = BorderStroke(
-                            if (isCurrent) 1.5.dp else 1.dp,
-                            if (isCurrent) NeonGreen else CardBorder
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                // Type badge (eSIM vs Physical SIM)
-                                Surface(
-                                    color = if (slot.isEmbedded) CyberCyan.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.08f),
-                                    shape = RoundedCornerShape(6.dp),
-                                    border = BorderStroke(1.dp, if (slot.isEmbedded) CyberCyan.copy(alpha = 0.4f) else CardBorder),
-                                    modifier = Modifier.padding(end = 10.dp)
-                                ) {
-                                    Text(
-                                        text = if (slot.isEmbedded) "eSIM" else "SIM ${if (slot.slotIndex >= 0) slot.slotIndex + 1 else slot.subscriptionId}",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (slot.isEmbedded) CyberCyan else TextPrimary,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                                    )
-                                }
-
-                                Column {
-                                    Text(
-                                        text = slot.displayLabel,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 14.sp,
-                                        color = TextPrimary
-                                    )
-                                    Text(
-                                        text = "${slot.carrierName} • SubId ${slot.subscriptionId}",
-                                        fontSize = 11.sp,
-                                        color = TextSecondary
-                                    )
-                                }
-                            }
-
-                            if (isCurrent) {
-                                Surface(
-                                    color = NeonGreen.copy(alpha = 0.15f),
-                                    shape = RoundedCornerShape(6.dp),
-                                    border = BorderStroke(1.dp, NeonGreen.copy(alpha = 0.5f))
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(6.dp)
-                                                .background(NeonGreen, androidx.compose.foundation.shape.CircleShape)
-                                        )
-                                        Spacer(modifier = Modifier.width(5.dp))
-                                        Text(
-                                            text = "ACTIVE DATA",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = NeonGreen
-                                        )
-                                    }
-                                }
-                            } else {
-                                Text(
-                                    text = "TAP TO SWITCH",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = CyberCyan
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-            Button(
-                onClick = onToggle,
-                enabled = simSlots.size >= 2,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = CyberCyan,
-                    contentColor = Color.Black
-                ),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                val buttonText = when {
-                    simSlots.size >= 2 && alternateSim != null ->
-                        "SWITCH DATA TO ${alternateSim.simType.uppercase()} (${alternateSim.displayLabel.uppercase()})"
-                    simSlots.size >= 2 -> "TOGGLE ALTERNATE SIM"
-                    else -> "DUAL-SIM REQUIRED (${simSlots.size} DETECTED)"
-                }
-                Text(
-                    text = buttonText,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
