@@ -1,0 +1,189 @@
+# Autoroid - Project Architecture & Technical Context
+
+> **Last Updated:** 2026-09-17  
+> **Package ID:** `com.autoroid.app`  
+> **Target Android Version:** Android 15 / 16 / 17 (`compileSdk = 36`, `targetSdk = 36`, `minSdk = 29`)  
+> **Distribution Model:** Self-hosted / Power User Automations (Not bound by Google Play sandbox restrictions)
+
+---
+
+## 1. Project Philosophy & Core Purpose
+
+**Autoroid** is an elevated-privilege Android automation engine designed for advanced personal workflows, system overrides, and application macros. Unlike conventional automation apps (Tasker, MacroDroid) that rely on brittle Accessibility service overlays or legacy hacks, Autoroid uses:
+1. **Direct Elevated IPC**: Talks directly to Android system services (`ITelephony`, `ISubscription`, `IAccessibilityManager`, `IActivityManager`) via **Root (UID 0)** and **Shizuku (UID 2000 ADB)**.
+2. **Native C++ Performance**: Compiles native C++17 shared libraries via Android NDK 27 (`libautoroid_native.so`) for sub-millisecond execution and direct Linux kernel interaction.
+3. **Dynamic Stealth & Evasion**: Can strip and restore system accessibility registries on-the-fly to bypass aggressive anti-automation detection in modern banking and enterprise apps.
+4. **Any-App UI & Macro Automation**: Automates multi-step flows in any third-party app (e.g. Samsung Health workout starting) via Smart UI Click (text/content-desc), screen coordinate tap, and deep intents.
+
+---
+
+## 2. Technology Stack & Build Environment
+
+| Layer | Technology |
+| :--- | :--- |
+| **Language & Runtime** | Kotlin 2.0.20 + Java 17/19 (`/Library/Java/JavaVirtualMachines/jdk-19.jdk/Contents/Home`) |
+| **Native Toolchain** | C++17, Android NDK `27.0.12077973`, CMake `3.22.1` |
+| **Android Build** | Android Gradle Plugin `8.6.0`, Gradle `8.10` |
+| **UI Framework** | Jetpack Compose Material 3 Dark theme (Cyber Cyan `#00E5FF`, Neon Green `#2EE59D`) |
+| **Elevation Backends** | `rikka.shizuku:api:13.1.5`, `rikka.shizuku:provider:13.1.5`, Native/KernelSU/APatch/Magisk `su` |
+| **Signing** | Dynamic release signing via gitignored `keystore.properties` / CI secrets (`RELEASE_KEYSTORE_BASE64`) |
+
+### Build Commands:
+```bash
+# Debug APK
+export JAVA_HOME="/Library/Java/JavaVirtualMachines/jdk-19.jdk/Contents/Home"
+export PATH="$JAVA_HOME/bin:$PATH"
+./gradlew assembleDebug
+
+# Release APK (Signed via keystore.properties or environment variables)
+./gradlew assembleRelease
+# Output: app/build/outputs/apk/release/app-release.apk
+```
+
+### Automated GitHub Actions CI/CD (`.github/workflows/release.yml`):
+Whenever code is pushed to `main` or a `v*` tag is created:
+1. Ubuntu runner checks out repo with full history.
+2. Installs Temurin JDK 19, NDK 27, and CMake.
+3. Compiles and signs the release APK using `autoroid-release.jks`.
+4. Automatically publishes the GitHub Release on `ScoRpiiTech/autoroid` with `app-release.apk` attached.
+
+---
+
+## 3. Subsystem Architecture
+
+### A. Privilege Engine (`app/src/main/java/com/autoroid/app/core/privilege`)
+* **`PrivilegeLevel`**: Enum (`ROOT`, `SHIZUKU`, `ADB`, `NONE`).
+* **`PrivilegeEngine`**: Interface defining `suspend fun execute(command: String): CommandResult` and `suspend fun isAvailable(): Boolean`.
+* **`RootEngine`**: Executes commands as `su -c ...` (UID 0) across Magisk, KernelSU, and APatch.
+* **`ShizukuEngine`**: Executes shell commands with UID 2000 ADB privileges using direct AIDL `IShizukuService.Stub.asInterface(Shizuku.getBinder()).newProcess(...)` with `ParcelFileDescriptor` streaming.
+* **`ShizukuProvider`**: Declared in `AndroidManifest.xml` with `${applicationId}.shizuku` authority to establish the IPC binder bridge between Shizuku Server and Autoroid.
+* **`PrivilegeManager`**: Dynamic resolution. Automatically checks Root first, falls back to Shizuku, handles runtime disconnects, and coordinates fallback execution.
+
+### B. Native Core (`app/src/main/cpp` & `app/src/main/java/com/autoroid/app/core/native`)
+* **`native_engine.cpp`**: Compiled for `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`.
+* Functions:
+  - `getNativeCoreVersion()`: Identifies native engine architecture.
+  - `isDirectRootAvailable()`: High-speed native access checks across common su and KernelSU binary locations.
+  - `executeNativeCommand(cmd)`: High-performance `popen` wrapper.
+* **`NativeEngine.kt`**: JNI bridge loading `autoroid_native`.
+
+### C. System Controllers (`app/src/main/java/com/autoroid/app/feature`)
+1. **Bank Mode (`feature/accessibility/AccessibilityController.kt`)**:
+   - **Problem:** Banking apps detect running accessibility services and block logins.
+   - **Solution:** Saves current `enabled_accessibility_services` to private preferences, writes `""` to `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES`, and sets `accessibility_enabled 0`.
+   - **Restoration:** One-tap restore rewires the exact list of previous services back into Android settings and sets `accessibility_enabled 1`.
+2. **Dual-SIM Data Switcher (`feature/telephony/TelephonyController.kt`)**:
+   - Reads active subscriptions from `SubscriptionManager` and `dumpsys telephony.registry`.
+   - Switches default mobile data using `cmd phone set-preferred-data-subId <subId>` (with fallback to `cmd phone set-default-data-subId <subId>`).
+3. **Quick Settings Tiles (`feature/tiles`)**:
+   - `BankModeTileService`: Quick Settings tile to toggle Bank Mode from the notification shade.
+   - `SimSwitchTileService`: Quick Settings tile to toggle mobile data SIM from the notification shade.
+
+### D. Dynamic Workflow Engine (`app/src/main/java/com/autoroid/app/feature/workflow`)
+1. **Step Types (`model/WorkflowStep.kt`)**:
+   - `LaunchApp(packageName, appLabel)`: Elevated `am start -n <component>` or launcher intent.
+   - `SmartClickText(targetText)`: Dumps UI with `uiautomator dump`, parses XML bounds `[x1,y1][x2,y2]` for matching text/content-desc, calculates midpoint, and runs `input tap X Y`.
+   - `TapCoordinate(x, y, note)`: Direct screen tap injection (`input tap x y`).
+   - `Delay(durationMs)`: Coroutine delay for UI painting.
+   - `Swipe(startX, startY, endX, endY, durationMs)`: Gestural inputs.
+   - `ShellCommand(command)`: Arbitrary elevated shell scripts.
+2. **Execution Runner (`runner/WorkflowRunner.kt`)**:
+   - Sequential step execution on `Dispatchers.IO`.
+   - Exposes reactive `ExecutionState` with step progress and status messaging.
+3. **Screen Coordinates Inspector (`runner/PointerLocationHelper.kt`)**:
+   - Toggles `settings put system pointer_location 1/0`.
+   - Overlays real-time $(X, Y)$ touch coordinates in the Android status bar.
+4. **Storage (`repository/WorkflowRepository.kt`)**:
+   - Reads/writes `autoroid_workflows.json` in `context.filesDir`.
+   - Pre-seeds "Samsung Health: Start Running", "Force Stop App Macro", and "Quick Screen Tap Macro".
+5. **UI Components (`ui/`)**:
+   - `WorkflowCard`: Live execution cards with expandable step details.
+   - `WorkflowEditorDialog`: Step builder, reorder, delete, and configure.
+   - `AppPickerDialog`: Searchable installed apps selector.
+
+### E. In-App Self-Update System (`app/src/main/java/com/autoroid/app/feature/update`)
+1. **GitHub Releases Client (`UpdateManager.kt`)**:
+   - Queries `https://api.github.com/repos/ScoRpiiTech/autoroid/releases/latest`.
+   - Parses semver release tags, markdown notes, and APK assets.
+   - Streams APK downloads to app cache with live percentage reporting.
+2. **Elevated Silent Self-Installation**:
+   - Executes `pm install -r -d <apkPath>` via Root or Shizuku without user prompts.
+   - Automatically restarts the updated application via `am start`.
+   - Falls back to `androidx.core.content.FileProvider` for standard PackageInstaller flow.
+3. **UI Notification**:
+   - `UpdateBannerCard.kt`: Dynamic banner displaying version, notes, download progress, and 1-tap install.
+
+---
+
+## 4. Key File Map
+
+```
+/Volumes/Data/Projects/Autoroid/
+├── PROJECT_CONTEXT.md                       # Comprehensive architecture & codebase reference
+├── CHANGELOG.md                             # Running history of updates and modifications
+├── autoroid-release.jks                     # Production signing keystore (alias: key)
+├── settings.gradle.kts                      # Gradle modules definition
+├── build.gradle.kts                         # Root Gradle plugins
+├── gradle.properties                        # JVM & Android SDK flags
+├── local.properties                         # sdk.dir path
+├── app/
+│   ├── build.gradle.kts                     # App dependencies, NDK CMake config & signingConfigs
+│   └── src/main/
+│       ├── AndroidManifest.xml              # Manifest, permissions, activities, & tile services
+│       ├── cpp/
+│       │   ├── CMakeLists.txt               # CMake 3.22.1 build definition
+│       │   └── native_engine.cpp            # NDK 27 native C++ implementation
+│       ├── java/com/autoroid/app/
+│       │   ├── AutoroidApp.kt               # Application entry & dependency orchestrator
+│       │   ├── core/
+│       │   │   ├── native/
+│       │   │   │   └── NativeEngine.kt      # JNI bridge
+│       │   │   └── privilege/
+│       │   │       ├── PrivilegeLevel.kt    # Enums and CommandResult
+│       │   │       ├── PrivilegeEngine.kt   # Engine interface
+│       │   │       ├── RootEngine.kt        # Root su backend
+│       │   │       ├── ShizukuEngine.kt     # Shizuku reflection backend
+│       │   │       └── PrivilegeManager.kt  # Dynamic dispatcher
+│       │   ├── feature/
+│       │   │   ├── accessibility/
+│       │   │   │   └── AccessibilityController.kt # Bank Mode
+│       │   │   ├── telephony/
+│       │   │   │   └── TelephonyController.kt     # Dual-SIM Switcher
+│       │   │   ├── tiles/
+│       │   │   │   ├── BankModeTileService.kt     # Quick Settings Bank Mode tile
+│       │   │   │   └── SimSwitchTileService.kt    # Quick Settings SIM Switch tile
+│       │   │   ├── update/
+│       │   │   │   ├── model/
+│       │   │   │   │   └── UpdateInfo.kt          # Update models & states
+│       │   │   │   ├── runner/
+│       │   │   │   │   └── UpdateManager.kt       # GitHub Releases client & silent installer
+│       │   │   │   └── ui/
+│       │   │   │       ├── UpdateBannerCard.kt    # Update notification card
+│       │   │   │       └── UpdateStatusDialog.kt  # Interactive update comparison & install dialog
+│       │   │   └── workflow/
+│       │   │       ├── model/
+│       │   │       │   ├── WorkflowStep.kt        # Step models & JSON
+│       │   │       │   └── Workflow.kt            # Workflow data model & JSON
+│       │   │       ├── runner/
+│       │   │       │   ├── WorkflowRunner.kt      # Sequential executor & smart click
+│       │   │       │   └── PointerLocationHelper.kt # Coordinate overlay helper
+│       │   │       ├── repository/
+│       │   │       │   └── WorkflowRepository.kt  # JSON file persistence & seed templates
+│       │   │       └── ui/
+│       │   │           ├── WorkflowCard.kt        # UI card with progress
+│       │   │           ├── WorkflowEditorDialog.kt# Step editor modal
+│       │   │           └── AppPickerDialog.kt     # Searchable installed apps selector
+│       │   └── ui/
+│       │       ├── MainActivity.kt          # Host activity & Shizuku permission listener
+│       │       ├── MainViewModel.kt         # Reactive state manager (StateFlow)
+│       │       ├── theme/Theme.kt           # Cyber dark Material 3 theme
+│       │       └── screens/HomeScreen.kt    # Primary Compose dashboard
+│       └── res/
+│           ├── xml/
+│           │   ├── data_extraction_rules.xml
+│           │   └── file_paths.xml           # FileProvider paths for updates
+│           ├── values/                      # strings.xml, themes.xml, colors.xml
+│           ├── drawable/                    # ic_shield.xml, ic_sim_card.xml
+│           └── mipmap-anydpi-v26/           # ic_launcher.xml, ic_launcher_round.xml
+```
+

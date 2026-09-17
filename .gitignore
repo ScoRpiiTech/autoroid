@@ -1,0 +1,32 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+*/build
+.cxx/
+*/.cxx/
+*.apk
+*.aab
+
+# Keystores & Signing Secrets (NEVER commit to public repo)
+*.jks
+*.keystore
+keystore.properties
+*.p12
+*.pem
+*.key
+*.secret
+.env
+
+# Agent & Session Directives (Kept local, hidden from public repo)
+AGENTS.md
+GEMINI.md
+.agent/
+.agent*

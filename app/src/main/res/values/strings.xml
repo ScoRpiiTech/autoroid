@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Autoroid</string>
+    <string name="tile_bank_mode">Bank Mode</string>
+    <string name="tile_sim_switch">SIM Data</string>
+</resources>

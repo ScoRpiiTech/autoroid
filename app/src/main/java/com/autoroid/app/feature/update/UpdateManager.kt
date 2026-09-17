@@ -1,0 +1,256 @@
+package com.autoroid.app.feature.update
+
+import android.content.Context
+import android.content.Intent
+import androidx.core.content.FileProvider
+import com.autoroid.app.core.privilege.PrivilegeManager
+import com.autoroid.app.feature.update.model.UpdateInfo
+import com.autoroid.app.feature.update.model.UpdateState
+import com.autoroid.app.feature.update.model.UpdateStatus
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+
+class UpdateManager(
+    private val context: Context,
+    private val privilegeManager: PrivilegeManager
+) {
+    private val _updateStatus = MutableStateFlow(UpdateStatus())
+    val updateStatus: StateFlow<UpdateStatus> = _updateStatus.asStateFlow()
+
+    companion object {
+        const val GITHUB_OWNER = "ScoRpiiTech"
+        const val GITHUB_REPO = "autoroid"
+        private const val API_URL = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest"
+    }
+
+    val currentVersion: String
+        get() = try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.2.1"
+        } catch (_: Exception) {
+            "1.2.1"
+        }
+
+    suspend fun checkForUpdates(): UpdateInfo? = withContext(Dispatchers.IO) {
+        _updateStatus.value = UpdateStatus(state = UpdateState.CHECKING, message = "Checking GitHub for updates...")
+        try {
+            val url = URL(API_URL)
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                setRequestProperty("Accept", "application/vnd.github.v3+json")
+                setRequestProperty("User-Agent", "Autoroid-App")
+                connectTimeout = 8000
+                readTimeout = 8000
+            }
+
+            if (conn.responseCode != 200) {
+                val errorMsg = when (conn.responseCode) {
+                    404 -> "No GitHub releases found on repository."
+                    403 -> "GitHub API rate limit reached. Please wait a moment."
+                    else -> "GitHub API returned HTTP ${conn.responseCode}"
+                }
+                _updateStatus.value = UpdateStatus(
+                    state = UpdateState.ERROR,
+                    message = errorMsg
+                )
+                return@withContext null
+            }
+
+            val response = conn.inputStream.bufferedReader().use { it.readText() }
+            val json = JSONObject(response)
+
+            val tagName = json.optString("tag_name", "")
+            val releaseNotes = json.optString("body", "No release notes provided.")
+            val publishedAt = json.optString("published_at", "")
+
+            var downloadUrl = ""
+            val assets = json.optJSONArray("assets")
+            if (assets != null) {
+                for (i in 0 until assets.length()) {
+                    val asset = assets.optJSONObject(i) ?: continue
+                    val name = asset.optString("name", "")
+                    if (name.endsWith(".apk", ignoreCase = true)) {
+                        downloadUrl = asset.optString("browser_download_url", "")
+                        break
+                    }
+                }
+            }
+
+            val currentVersion = try {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.0"
+            } catch (_: Exception) {
+                "1.0.0"
+            }
+
+            val isNewer = isNewerVersion(tagName, currentVersion)
+            val info = UpdateInfo(
+                latestVersion = tagName,
+                releaseNotes = releaseNotes,
+                downloadUrl = downloadUrl,
+                hasUpdate = isNewer && downloadUrl.isNotBlank(),
+                publishedAt = publishedAt
+            )
+
+            if (info.hasUpdate) {
+                _updateStatus.value = UpdateStatus(
+                    state = UpdateState.AVAILABLE,
+                    updateInfo = info,
+                    message = "New version $tagName available!"
+                )
+            } else {
+                _updateStatus.value = UpdateStatus(
+                    state = UpdateState.UP_TO_DATE,
+                    updateInfo = info,
+                    message = "Autoroid is up to date ($currentVersion)"
+                )
+            }
+
+            info
+        } catch (e: Exception) {
+            _updateStatus.value = UpdateStatus(
+                state = UpdateState.ERROR,
+                message = "Failed to check update: ${e.localizedMessage}"
+            )
+            null
+        }
+    }
+
+    suspend fun downloadAndInstall(updateInfo: UpdateInfo) = withContext(Dispatchers.IO) {
+        if (updateInfo.downloadUrl.isBlank()) {
+            _updateStatus.value = UpdateStatus(state = UpdateState.ERROR, message = "Invalid download URL")
+            return@withContext
+        }
+
+        _updateStatus.value = UpdateStatus(
+            state = UpdateState.DOWNLOADING,
+            updateInfo = updateInfo,
+            progressPercent = 0,
+            message = "Starting download..."
+        )
+
+        val updatesDir = File(context.cacheDir, "updates").apply { mkdirs() }
+        val apkFile = File(updatesDir, "autoroid-update.apk")
+
+        try {
+            val url = URL(updateInfo.downloadUrl)
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                instanceFollowRedirects = true
+                setRequestProperty("User-Agent", "Autoroid-App")
+                connectTimeout = 15000
+                readTimeout = 30000
+            }
+
+            val totalLength = conn.contentLength
+            var downloadedBytes = 0L
+
+            conn.inputStream.use { input ->
+                FileOutputStream(apkFile).use { output ->
+                    val buffer = ByteArray(8192)
+                    var bytesRead: Int
+                    var lastPercent = 0
+
+                    while (input.read(buffer).also { bytesRead = it } != -1) {
+                        output.write(buffer, 0, bytesRead)
+                        downloadedBytes += bytesRead
+
+                        if (totalLength > 0) {
+                            val percent = ((downloadedBytes * 100) / totalLength).toInt()
+                            if (percent != lastPercent) {
+                                lastPercent = percent
+                                _updateStatus.value = UpdateStatus(
+                                    state = UpdateState.DOWNLOADING,
+                                    updateInfo = updateInfo,
+                                    progressPercent = percent,
+                                    message = "Downloading: $percent%"
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Installation Phase
+            _updateStatus.value = UpdateStatus(
+                state = UpdateState.INSTALLING,
+                updateInfo = updateInfo,
+                progressPercent = 100,
+                message = "Installing update..."
+            )
+
+            installApk(apkFile)
+
+        } catch (e: Exception) {
+            _updateStatus.value = UpdateStatus(
+                state = UpdateState.ERROR,
+                message = "Download failed: ${e.localizedMessage}"
+            )
+        }
+    }
+
+    private suspend fun installApk(apkFile: File) {
+        val apkPath = apkFile.absolutePath
+
+        // Priority 1: Elevated silent install via Root or Shizuku (0 user prompts)
+        val elevatedCmd = "pm install -r -d $apkPath"
+        val elevatedResult = privilegeManager.executeElevated(elevatedCmd)
+
+        if (elevatedResult.isSuccess) {
+            _updateStatus.value = UpdateStatus(
+                state = UpdateState.UP_TO_DATE,
+                message = "Update installed successfully! Restarting..."
+            )
+            // Restart application
+            privilegeManager.executeElevated("am start -n ${context.packageName}/.ui.MainActivity")
+            return
+        }
+
+        // Priority 2: Standard Android PackageInstaller Fallback
+        withContext(Dispatchers.Main) {
+            try {
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    apkFile
+                )
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/vnd.android.package-archive")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                _updateStatus.value = UpdateStatus(
+                    state = UpdateState.ERROR,
+                    message = "Installer launch failed: ${e.localizedMessage}"
+                )
+            }
+        }
+    }
+
+    private fun isNewerVersion(remoteTag: String, currentVersion: String): Boolean {
+        val remoteClean = remoteTag.trim().removePrefix("v").removePrefix("V")
+        val currentClean = currentVersion.trim().removePrefix("v").removePrefix("V")
+
+        if (remoteClean.isBlank() || currentClean.isBlank()) return false
+        if (remoteClean == currentClean) return false
+
+        val remoteParts = remoteClean.split(".").mapNotNull { it.toIntOrNull() }
+        val currentParts = currentClean.split(".").mapNotNull { it.toIntOrNull() }
+
+        val length = maxOf(remoteParts.size, currentParts.size)
+        for (i in 0 until length) {
+            val r = remoteParts.getOrElse(i) { 0 }
+            val c = currentParts.getOrElse(i) { 0 }
+            if (r > c) return true
+            if (r < c) return false
+        }
+        return false
+    }
+}
