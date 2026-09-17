@@ -459,5 +459,32 @@
 ### 2. Version Bump
 * **`app/build.gradle.kts`**: Bumped `versionCode = 12` and `versionName = "1.2.11"`.
 
+---
+
+## [v1.2.12] - Elevated BrokerInstrumentation Carrier Patcher (CVE-2025-48617 Bypass)
+* **Date:** 2026-09-18
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
+
+### 1. Root Cause Fix: "Failed to Apply Override to SIM"
+* **Identified Root Causes:**
+  - In recent Android security updates (CVE-2025-48617 on Pixel 7 Pro, Android 14/15/16), Google patched the shell user from directly calling `CarrierConfigManager.overrideConfig()` or `ICarrierConfigLoader` with `SecurityException: overrideConfig cannot be invoked by shell`.
+  - Android requires caller to be an **active instrumentation runner** started from the shell in order to invoke `startDelegateShellPermissionIdentity(Os.getuid(), null)`.
+  - The `<instrumentation>` tag was not registered in `AndroidManifest.xml`.
+  - `ImsController` previously fell back to non-existent shell command `cmd phone cc set-value`.
+  - Command-line arguments passed via `am instrument` are received as `String` in `Bundle`, which caused `moder_subId` and boolean flags (`carrier_volte_available_bool`, etc.) to be misinterpreted unless parsed as typed Booleans and Integers.
+* **Architecture Solution:**
+  - **`AndroidManifest.xml`**: Registered `<instrumentation android:name=".feature.telephony.ims.BrokerInstrumentation" android:targetPackage="com.autoroid.app" />`.
+  - **`BrokerInstrumentation.kt`**:
+    - Robust string-to-type parsing for `moder_subId` and `PersistableBundle` boolean/int configuration flags.
+    - Uses `IActivityManager.startDelegateShellPermissionIdentity(Os.getuid(), null)` within the active instrumentation context.
+    - Calls `CarrierConfigManager.overrideConfig(subId, bundle, persistent = false)`.
+    - Returns structured result bundle (`Activity.RESULT_OK` / `Activity.RESULT_CANCELED`).
+  - **`ImsController.kt`**:
+    - Rewrote `applyConfig` and `clearConfig` to execute `am instrument -w` via `PrivilegeManager` (Root UID 0 or Shizuku UID 2000 ADB shell).
+    - Added error message extraction and diagnostics.
+
+### 2. Version Bump
+* **`app/build.gradle.kts`**: Bumped `versionCode = 13` and `versionName = "1.2.12"`.
+
 
 

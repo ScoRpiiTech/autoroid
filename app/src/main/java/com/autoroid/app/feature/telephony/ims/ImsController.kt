@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.IBinder
 import android.os.PersistableBundle
+import android.util.Log
 import com.autoroid.app.core.privilege.PrivilegeLevel
 import com.autoroid.app.core.privilege.PrivilegeManager
 import com.autoroid.app.feature.telephony.TelephonyController
@@ -42,23 +43,24 @@ class ImsController(
         val updatedConfig = config.copy(slotIndex = slotIndex, subscriptionId = subId)
 
         try {
-            // Method 1: Try Shizuku Direct Binder IPC (fastest, cleanest)
-            val binderSuccess = applyViaShizukuBinder(subId, updatedConfig)
+            // Method 1: Elevated Instrumentation runner (Bypasses CVE-2025-48617 on Android 14/15/16)
+            val (instSuccess, instError) = applyViaInstrumentation(subId, updatedConfig)
 
-            // Method 2: If binder method failed or not supported, use elevated shell commands
-            val shellSuccess = if (!binderSuccess) {
-                applyViaElevatedShell(slotIndex, subId, updatedConfig)
+            // Method 2: Direct Shizuku Binder IPC fallback (for older Android versions)
+            val binderSuccess = if (!instSuccess) {
+                applyViaShizukuBinder(subId, updatedConfig)
             } else {
                 true
             }
 
-            if (binderSuccess || shellSuccess) {
+            if (instSuccess || binderSuccess) {
                 repository.saveConfig(updatedConfig.copy(isApplied = true, lastAppliedTimestamp = System.currentTimeMillis()))
                 val msg = "IMS overrides successfully applied for SIM ${slotIndex + 1} (SubId $subId)"
                 _lastResult.value = msg
                 Result.success(msg)
             } else {
-                val err = "Failed to apply IMS overrides. Ensure Shizuku or Root is granted."
+                val detail = if (!instError.isNullOrBlank()) ": $instError" else ""
+                val err = "Failed to apply IMS overrides$detail. Ensure Shizuku or Root is granted."
                 _lastResult.value = err
                 Result.failure(Exception(err))
             }
@@ -116,16 +118,17 @@ class ImsController(
     suspend fun clearConfig(slotIndex: Int, subId: Int): Result<String> = withContext(Dispatchers.IO) {
         _isApplying.value = true
         try {
-            // 1. Try Shizuku binder empty override
-            try {
-                clearViaShizukuBinder(subId)
-            } catch (_: Throwable) {
+            // 1. Try BrokerInstrumentation clear (Bypasses CVE-2025-48617)
+            val (instSuccess, _) = clearViaInstrumentation(subId)
+
+            // 2. Try Shizuku binder empty override fallback
+            if (!instSuccess) {
+                try {
+                    clearViaShizukuBinder(subId)
+                } catch (_: Throwable) {}
             }
 
-            // 2. Clear via shell
-            val res = privilegeManager.executeElevated("cmd phone cc clear-values -s $slotIndex\ncmd phone cc clear-values")
             repository.markApplied(slotIndex, false)
-
             val msg = "Carrier overrides cleared for SIM ${slotIndex + 1}. Factory configs restored."
             _lastResult.value = msg
             Result.success(msg)
@@ -215,18 +218,39 @@ class ImsController(
         }
     }
 
-    private suspend fun applyViaElevatedShell(slotIndex: Int, subId: Int, config: ImsConfig): Boolean {
-        val pairs = config.toKeyValuePairs()
-        val commands = StringBuilder()
-        for ((key, value) in pairs) {
-            // Set for slotIndex
-            commands.append("cmd phone cc set-value -s ").append(slotIndex).append(" ").append(key).append(" ").append(value).append("\n")
-            if (subId > 0 && subId != slotIndex) {
-                // Also set with -s subId if different
-                commands.append("cmd phone cc set-value -s ").append(subId).append(" ").append(key).append(" ").append(value).append("\n")
-            }
+    private suspend fun applyViaInstrumentation(subId: Int, config: ImsConfig): Pair<Boolean, String?> {
+        val sb = StringBuilder()
+        sb.append("am instrument -w ")
+        sb.append("-e moder_subId ").append(subId).append(" ")
+        for ((key, value) in config.toKeyValuePairs()) {
+            sb.append("-e ").append(key).append(" ").append(value).append(" ")
         }
-        val result = privilegeManager.executeElevated(commands.toString())
-        return result.isSuccess
+        sb.append("com.autoroid.app/.feature.telephony.ims.BrokerInstrumentation")
+
+        val result = privilegeManager.executeElevated(sb.toString())
+        val output = "${result.stdout}\n${result.stderr}".trim()
+        Log.i("ImsController", "am instrument apply output: $output")
+
+        val isSuccess = output.contains("result=success") ||
+            (result.isSuccess && !output.contains("result=error") && output.contains("INSTRUMENTATION_CODE: -1"))
+
+        val errorDetails = if (!isSuccess) {
+            val errorMatch = Regex("result=error:\\s*(.*)").find(output)
+            errorMatch?.groupValues?.get(1)?.trim() ?: output.ifBlank { result.stderr }
+        } else null
+
+        return Pair(isSuccess, errorDetails)
+    }
+
+    private suspend fun clearViaInstrumentation(subId: Int): Pair<Boolean, String?> {
+        val cmd = "am instrument -w -e moder_clear true -e moder_subId $subId com.autoroid.app/.feature.telephony.ims.BrokerInstrumentation"
+        val result = privilegeManager.executeElevated(cmd)
+        val output = "${result.stdout}\n${result.stderr}".trim()
+        Log.i("ImsController", "am instrument clear output: $output")
+
+        val isSuccess = output.contains("result=success") ||
+            (result.isSuccess && !output.contains("result=error") && output.contains("INSTRUMENTATION_CODE: -1"))
+
+        return Pair(isSuccess, if (!isSuccess) output else null)
     }
 }

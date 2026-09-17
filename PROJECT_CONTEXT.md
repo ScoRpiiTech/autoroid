@@ -88,9 +88,10 @@ Whenever a version tag (`v*`) is pushed:
 4. **Carrier & IMS Patcher (`feature/telephony/ims`)**:
    - **Problem:** Google limits VoLTE, VoWiFi, and 5G VoNR on Pixel devices in unsupported regions (e.g. Pakistan). Android resets carrier overrides on reboot.
    - **`ImsConfig.kt`**: Feature flags mapping to `CarrierConfigManager` keys (`carrier_volte_available_bool`, `carrier_wfc_ims_available_bool`, `vonr_enabled_bool`, `carrier_supports_ss_over_ut_bool`, settings toggle visibility).
-   - **`ImsRepository.kt`**: SharedPreferences persistence (`autoroid_ims_carrier_config`) for Physical SIM and eSIM independent configs.
-   - **`ImsController.kt`**: Dual IPC engine (Shizuku Binder `ICarrierConfigLoader.overrideConfig` + elevated shell `cmd phone cc set-value -s <slotId>`).
-   - **Reboot Engine:** `BootReceiver` and `AutoroidApp` automatically restore overrides on phone restart without needing Turbo IMS.
+    - **`ImsRepository.kt`**: SharedPreferences persistence (`autoroid_ims_carrier_config`) for Physical SIM and eSIM independent configs.
+    - **`BrokerInstrumentation.kt`**: Elevated instrumentation runner bypassing CVE-2025-48617 via `IActivityManager.startDelegateShellPermissionIdentity`.
+    - **`ImsController.kt`**: Elevated orchestration engine (`am instrument -w` runner via Root/Shizuku + binder fallback).
+    - **Reboot Engine:** `BootReceiver` and `AutoroidApp` automatically restore overrides on phone restart without needing Turbo IMS.
    - **`ImsCarrierPatcherCard.kt`**: Microchip cyber card with SIM slot switcher, live status banner, feature toggles, and 1-tap apply/reset actions.
 5. **Quick Settings Tiles (`feature/tiles`)**:
    - `BankModeTileService`: Quick Settings tile displaying real-time protected/running/clean state.
@@ -185,6 +186,7 @@ Whenever a version tag (`v*`) is pushed:
 │       │   │   ├── telephony/
 │       │   │   │   ├── TelephonyController.kt     # Dual-SIM Switcher
 │       │   │   │   ├── ims/
+│       │   │   │   │   ├── BrokerInstrumentation.kt # Elevated instrumentation runner
 │       │   │   │   │   ├── ImsController.kt       # Carrier config override & boot restorer
 │       │   │   │   │   ├── model/
 │       │   │   │   │   │   └── ImsConfig.kt       # CarrierConfigManager flags data model
