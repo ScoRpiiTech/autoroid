@@ -29,6 +29,14 @@ import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
+import com.autoroid.app.ui.dialogs.FeatureHelpType
+import com.autoroid.app.ui.dialogs.FeatureInfoDialog
 import androidx.compose.material3.OutlinedButton
 import com.autoroid.app.feature.update.model.UpdateState
 import com.autoroid.app.feature.update.ui.UpdateBannerCard
@@ -98,6 +106,15 @@ fun HomeScreen(
     val isPointerLocationActive by viewModel.isPointerLocationActive.collectAsState()
     val updateStatus by viewModel.updateStatus.collectAsState()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    var activeHelpType by remember { mutableStateOf<FeatureHelpType?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collect { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
     var customCmd by remember { mutableStateOf("") }
     var showCreateWorkflowDialog by remember { mutableStateOf(false) }
     var workflowToEdit by remember { mutableStateOf<Workflow?>(null) }
@@ -105,6 +122,20 @@ fun HomeScreen(
     var dismissedUpdateVersion by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = CardSurface,
+                    contentColor = TextPrimary,
+                    actionColor = CyberCyan,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .border(1.dp, CyberCyan.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                )
+            }
+        },
         topBar = {
             TopAppBar(
                 title = {
@@ -140,6 +171,13 @@ fun HomeScreen(
                                 .padding(end = 8.dp),
                             color = CyberCyan,
                             strokeWidth = 2.dp
+                        )
+                    }
+                    IconButton(onClick = { activeHelpType = FeatureHelpType.ENGINE_PRIVILEGE }) {
+                        Icon(
+                            imageVector = Icons.Default.HelpOutline,
+                            contentDescription = "Feature Guide & How It Works",
+                            tint = CyberCyan
                         )
                     }
                     IconButton(onClick = {
@@ -195,7 +233,8 @@ fun HomeScreen(
                 PrivilegeStatusCard(
                     level = privilegeLevel,
                     nativeVer = nativeVer,
-                    onRequestShizuku = onRequestShizuku
+                    onRequestShizuku = onRequestShizuku,
+                    onHelpClick = { activeHelpType = FeatureHelpType.ENGINE_PRIVILEGE }
                 )
             }
 
@@ -204,7 +243,8 @@ fun HomeScreen(
                 BankModeCard(
                     isActive = isBankModeActive,
                     activeServices = activeServices,
-                    onToggle = { viewModel.toggleBankMode() }
+                    onToggle = { viewModel.toggleBankMode() },
+                    onHelpClick = { activeHelpType = FeatureHelpType.BANK_MODE }
                 )
             }
 
@@ -214,7 +254,8 @@ fun HomeScreen(
                     simSlots = simSlots,
                     activeSubId = activeDataSubId,
                     onToggle = { viewModel.toggleAlternateSim() },
-                    onSelectSubId = { viewModel.switchToSubId(it) }
+                    onSelectSubId = { viewModel.switchToSubId(it) },
+                    onHelpClick = { activeHelpType = FeatureHelpType.SIM_SWITCHER }
                 )
             }
 
@@ -225,19 +266,33 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text(
-                            text = "WORKFLOW AUTOMATIONS",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = CyberCyan,
-                            letterSpacing = 1.sp
-                        )
-                        Text(
-                            text = "One-click multi-step app macros",
-                            fontSize = 11.sp,
-                            color = TextSecondary
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column {
+                            Text(
+                                text = "WORKFLOW AUTOMATIONS",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = CyberCyan,
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                text = "One-click multi-step app macros",
+                                fontSize = 11.sp,
+                                color = TextSecondary
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        IconButton(
+                            onClick = { activeHelpType = FeatureHelpType.WORKFLOWS },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.HelpOutline,
+                                contentDescription = "Workflows Guide",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -277,6 +332,7 @@ fun HomeScreen(
                 WorkflowCard(
                     workflow = workflow,
                     executionState = executionState,
+                    isPackageInstalled = { viewModel.isPackageInstalled(it) },
                     onRun = { viewModel.runWorkflow(workflow) },
                     onEdit = { workflowToEdit = workflow },
                     onDelete = { viewModel.deleteWorkflow(workflow.id) }
@@ -292,6 +348,7 @@ fun HomeScreen(
                         viewModel.executeCustomCommand(customCmd)
                         customCmd = ""
                     },
+                    onHelpClick = { activeHelpType = FeatureHelpType.ENGINE_PRIVILEGE },
                     logs = logs
                 )
             }
@@ -333,13 +390,21 @@ fun HomeScreen(
             onDismiss = { showUpdateDialog = false }
         )
     }
+
+    activeHelpType?.let { helpType ->
+        FeatureInfoDialog(
+            helpType = helpType,
+            onDismiss = { activeHelpType = null }
+        )
+    }
 }
 
 @Composable
 fun PrivilegeStatusCard(
     level: PrivilegeLevel,
     nativeVer: String,
-    onRequestShizuku: () -> Unit
+    onRequestShizuku: () -> Unit,
+    onHelpClick: () -> Unit = {}
 ) {
     val (statusColor, statusText) = when (level) {
         PrivilegeLevel.ROOT -> Pair(NeonGreen, "ACTIVE (Root UID 0)")
@@ -360,13 +425,24 @@ fun PrivilegeStatusCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "ENGINE STATUS",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextSecondary,
-                    letterSpacing = 1.sp
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "ENGINE STATUS",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextSecondary,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    IconButton(onClick = onHelpClick, modifier = Modifier.size(20.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.HelpOutline,
+                            contentDescription = "Privilege Guide",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
@@ -384,7 +460,7 @@ fun PrivilegeStatusCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = nativeVer,
                 fontSize = 11.sp,
@@ -393,6 +469,33 @@ fun PrivilegeStatusCard(
             )
 
             if (level == PrivilegeLevel.NONE) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    color = NeonRed.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, NeonRed.copy(alpha = 0.25f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = NeonRed,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Elevation is required. Buttons will not work until Root is granted or Shizuku is connected.",
+                            fontSize = 11.sp,
+                            color = NeonRed,
+                            lineHeight = 15.sp
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(
                     onClick = onRequestShizuku,
@@ -411,7 +514,8 @@ fun PrivilegeStatusCard(
 fun BankModeCard(
     isActive: Boolean,
     activeServices: List<String>,
-    onToggle: () -> Unit
+    onToggle: () -> Unit,
+    onHelpClick: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -450,6 +554,15 @@ fun BankModeCard(
                         )
                     }
                 }
+
+                IconButton(onClick = onHelpClick, modifier = Modifier.size(28.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.HelpOutline,
+                        contentDescription = "Bank Mode Info",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -459,6 +572,23 @@ fun BankModeCard(
                 color = TextSecondary,
                 lineHeight = 18.sp
             )
+
+            if (activeServices.isEmpty() && !isActive) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    color = DeepBackground,
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, CardBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "ℹ️ No accessibility services currently active on your phone.",
+                        fontSize = 11.sp,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
+            }
 
             if (activeServices.isNotEmpty() && !isActive) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -511,7 +641,8 @@ fun SimSwitcherCard(
     simSlots: List<com.autoroid.app.feature.telephony.SimSlotInfo>,
     activeSubId: Int?,
     onToggle: () -> Unit,
-    onSelectSubId: (Int) -> Unit
+    onSelectSubId: (Int) -> Unit,
+    onHelpClick: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -520,25 +651,40 @@ fun SimSwitcherCard(
         border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(CardBorder))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.SimCard,
-                    contentDescription = "SIM Switcher",
-                    tint = CyberCyan,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = "Dual-SIM Data Switcher",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = TextPrimary
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.SimCard,
+                        contentDescription = "SIM Switcher",
+                        tint = CyberCyan,
+                        modifier = Modifier.size(24.dp)
                     )
-                    Text(
-                        text = "Current Active SubId: ${activeSubId ?: "Auto"}",
-                        fontSize = 11.sp,
-                        color = CyberCyan
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "Dual-SIM Data Switcher",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "Current Active SubId: ${activeSubId ?: "Auto"}",
+                            fontSize = 11.sp,
+                            color = CyberCyan
+                        )
+                    }
+                }
+
+                IconButton(onClick = onHelpClick, modifier = Modifier.size(28.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.HelpOutline,
+                        contentDescription = "SIM Switcher Info",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
@@ -550,6 +696,35 @@ fun SimSwitcherCard(
                 color = TextSecondary,
                 lineHeight = 18.sp
             )
+
+            if (simSlots.size < 2) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    color = AmberWarn.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, AmberWarn.copy(alpha = 0.3f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = AmberWarn,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Single SIM active (${simSlots.size} detected) • Dual-SIM switching requires 2 SIM cards.",
+                            fontSize = 11.sp,
+                            color = AmberWarn,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
 
             if (simSlots.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
@@ -603,6 +778,7 @@ fun SimSwitcherCard(
             Spacer(modifier = Modifier.height(14.dp))
             Button(
                 onClick = onToggle,
+                enabled = simSlots.size >= 2,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = CyberCyan,
                     contentColor = Color.Black
@@ -611,7 +787,7 @@ fun SimSwitcherCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "TOGGLE ALTERNATE SIM",
+                    text = if (simSlots.size >= 2) "TOGGLE ALTERNATE SIM" else "DUAL-SIM REQUIRED (ONLY 1 SIM)",
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
@@ -625,6 +801,7 @@ fun ShellConsoleCard(
     customCmd: String,
     onCmdChange: (String) -> Unit,
     onRun: () -> Unit,
+    onHelpClick: () -> Unit = {},
     logs: List<String>
 ) {
     Card(
@@ -634,20 +811,34 @@ fun ShellConsoleCard(
         border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(CardBorder))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Terminal,
-                    contentDescription = "Console",
-                    tint = CyberCyan,
-                    modifier = Modifier.size(22.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Elevated Power Console",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = TextPrimary
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Terminal,
+                        contentDescription = "Console",
+                        tint = CyberCyan,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Elevated Power Console",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = TextPrimary
+                    )
+                }
+                IconButton(onClick = onHelpClick, modifier = Modifier.size(28.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.HelpOutline,
+                        contentDescription = "Console Info",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))

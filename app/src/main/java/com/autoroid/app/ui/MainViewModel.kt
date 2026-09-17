@@ -11,6 +11,7 @@ import com.autoroid.app.feature.telephony.TelephonyController
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -46,6 +47,9 @@ class MainViewModel : ViewModel() {
     private val _isBusy = MutableStateFlow(false)
     val isBusy: StateFlow<Boolean> = _isBusy.asStateFlow()
 
+    private val _uiEvent = kotlinx.coroutines.flow.MutableSharedFlow<String>()
+    val uiEvent: kotlinx.coroutines.flow.SharedFlow<String> = _uiEvent.asSharedFlow()
+
     private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
     init {
@@ -78,13 +82,42 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    fun isPackageInstalled(packageName: String): Boolean {
+        if (packageName.isBlank()) return true
+        return try {
+            AutoroidApp.instance.packageManager.getPackageInfo(packageName, 0)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     fun runWorkflow(workflow: com.autoroid.app.feature.workflow.model.Workflow) {
         viewModelScope.launch {
+            if (privilegeLevel.value == PrivilegeLevel.NONE) {
+                _uiEvent.emit("⚠️ Elevation Required: Connect Shizuku or grant Root to run workflows.")
+                log("Workflow ignored: No elevated privileges.")
+                return@launch
+            }
+
+            // Check if workflow contains an app launch for an uninstalled app
+            val missingAppStep = workflow.steps.filterIsInstance<com.autoroid.app.feature.workflow.model.WorkflowStep.LaunchApp>()
+                .firstOrNull { !isPackageInstalled(it.packageName) }
+            if (missingAppStep != null) {
+                val appName = missingAppStep.appLabel.ifBlank { missingAppStep.packageName }
+                _uiEvent.emit("⚠️ Target app \"$appName\" is not installed on this device.")
+                log("Workflow warning: App \"$appName\" (${missingAppStep.packageName}) is not installed.")
+            } else {
+                _uiEvent.emit("⚡ Running workflow: \"${workflow.name}\"...")
+            }
+
             log("Triggering Workflow: \"${workflow.name}\" (${workflow.steps.size} steps)")
             val success = workflowRunner.executeWorkflow(workflow)
             if (success) {
+                _uiEvent.emit("✅ Workflow \"${workflow.name}\" completed successfully.")
                 log("Workflow \"${workflow.name}\" executed successfully.")
             } else {
+                _uiEvent.emit("⚠️ Workflow \"${workflow.name}\" finished with issues.")
                 log("Workflow \"${workflow.name}\" finished with issues.")
             }
         }
@@ -93,6 +126,7 @@ class MainViewModel : ViewModel() {
     fun saveWorkflow(workflow: com.autoroid.app.feature.workflow.model.Workflow) {
         viewModelScope.launch {
             workflowRepository.saveWorkflow(workflow)
+            _uiEvent.emit("Saved workflow: \"${workflow.name}\"")
             log("Saved workflow: \"${workflow.name}\"")
         }
     }
@@ -100,27 +134,55 @@ class MainViewModel : ViewModel() {
     fun deleteWorkflow(id: String) {
         viewModelScope.launch {
             workflowRepository.deleteWorkflow(id)
+            _uiEvent.emit("Workflow deleted.")
             log("Deleted workflow.")
         }
     }
 
     fun togglePointerLocation() {
         viewModelScope.launch {
+            if (privilegeLevel.value == PrivilegeLevel.NONE) {
+                _uiEvent.emit("⚠️ Elevation Required: Connect Shizuku or grant Root to toggle touch coordinates.")
+                log("Pointer Location failed: Neither Root nor Shizuku is connected.")
+                return@launch
+            }
             val enabled = pointerLocationHelper.toggle()
+            if (enabled) {
+                _uiEvent.emit("🎯 Touch Coordinates ON: Status bar now shows live (X, Y) touch positions.")
+            } else {
+                _uiEvent.emit("🎯 Touch Coordinates OFF.")
+            }
             log("Screen Coordinate Overlay (Pointer Location): ${if (enabled) "ENABLED" else "DISABLED"}")
         }
     }
 
     fun toggleBankMode() {
         viewModelScope.launch {
+            if (privilegeLevel.value == PrivilegeLevel.NONE) {
+                _uiEvent.emit("⚠️ Elevation Required: Connect Shizuku or grant Root to use Bank Mode.")
+                log("Bank Mode failed: Neither Root nor Shizuku is connected.")
+                return@launch
+            }
             _isBusy.value = true
             val willEnable = !isBankModeActive.value
+            val servicesCount = activeServicesList.value.size
             log("Toggling Bank Mode -> ${if (willEnable) "ACTIVATE (Kill Accessibility)" else "RESTORE"}")
             val res = accessibilityController.toggleBankMode()
             if (res.isSuccess) {
+                if (willEnable) {
+                    if (servicesCount > 0) {
+                        _uiEvent.emit("🛡️ Bank Mode Active: $servicesCount accessibility service(s) paused for banking.")
+                    } else {
+                        _uiEvent.emit("🛡️ Bank Mode Active: Note that no accessibility services were running.")
+                    }
+                } else {
+                    _uiEvent.emit("✅ Bank Mode Disabled: Restored previous accessibility services.")
+                }
                 log("Bank Mode updated successfully.")
             } else {
-                log("Bank Mode failed: ${res.stderr.ifBlank { "Exit code ${res.exitCode}" }}")
+                val err = res.stderr.ifBlank { "Exit code ${res.exitCode}" }
+                _uiEvent.emit("⚠️ Bank Mode failed: $err")
+                log("Bank Mode failed: $err")
             }
             _isBusy.value = false
         }
@@ -128,13 +190,26 @@ class MainViewModel : ViewModel() {
 
     fun toggleAlternateSim() {
         viewModelScope.launch {
+            if (privilegeLevel.value == PrivilegeLevel.NONE) {
+                _uiEvent.emit("⚠️ Elevation Required: Connect Shizuku or grant Root to switch SIMs.")
+                log("SIM switch failed: Neither Root nor Shizuku is connected.")
+                return@launch
+            }
+            if (simSlots.value.size < 2) {
+                _uiEvent.emit("ℹ️ Single SIM Detected: Dual-SIM switcher requires 2 active SIM cards.")
+                log("SIM switch ignored: Only ${simSlots.value.size} SIM slot detected.")
+                return@launch
+            }
             _isBusy.value = true
             log("Switching Mobile Data to alternate SIM slot...")
             val res = telephonyController.toggleAlternateSim()
             if (res.isSuccess) {
+                _uiEvent.emit("📶 Switched default mobile data to alternate SIM slot.")
                 log("Data switch succeeded.")
             } else {
-                log("Data switch command failed: ${res.stderr.ifBlank { "Exit code ${res.exitCode}" }}")
+                val err = res.stderr.ifBlank { "Exit code ${res.exitCode}" }
+                _uiEvent.emit("⚠️ Data switch failed: $err")
+                log("Data switch command failed: $err")
             }
             _isBusy.value = false
         }
@@ -142,12 +217,18 @@ class MainViewModel : ViewModel() {
 
     fun switchToSubId(subId: Int) {
         viewModelScope.launch {
+            if (privilegeLevel.value == PrivilegeLevel.NONE) {
+                _uiEvent.emit("⚠️ Elevation Required: Connect Shizuku or grant Root to switch SIMs.")
+                return@launch
+            }
             _isBusy.value = true
             log("Switching Data SIM to Subscription ID: $subId")
             val res = telephonyController.switchToSubId(subId)
             if (res.isSuccess) {
+                _uiEvent.emit("📶 Switched mobile data to SubId $subId.")
                 log("Switched to SubId $subId.")
             } else {
+                _uiEvent.emit("⚠️ Failed switching to SubId $subId: ${res.stderr}")
                 log("Failed switching to SubId $subId: ${res.stderr}")
             }
             _isBusy.value = false
@@ -157,6 +238,11 @@ class MainViewModel : ViewModel() {
     fun executeCustomCommand(command: String) {
         if (command.isBlank()) return
         viewModelScope.launch {
+            if (privilegeLevel.value == PrivilegeLevel.NONE) {
+                _uiEvent.emit("⚠️ Elevation Required: Connect Shizuku or grant Root to run commands.")
+                log("[ERR] Elevation required to execute shell commands.")
+                return@launch
+            }
             log("> $command")
             val res = privilegeManager.executeElevated(command)
             if (res.stdout.isNotBlank()) {

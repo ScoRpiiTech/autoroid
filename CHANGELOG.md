@@ -195,7 +195,38 @@
   - Added `purgeAllUpdateFiles()` immediately upon successful elevated installation before app restart, and whenever status reports up-to-date.
   - Ensures no 40MB+ update packages linger on device storage after installation.
 
+---
 
+## [v1.2.4] - Interactive UI Feedback, Feature Help Modals & Contextual Guidance
+* **Date:** 2026-09-17
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
 
+### 1. Interactive Feature Information & Troubleshooting Dialogs
+* **`FeatureInfoDialog.kt`**:
+  - Created interactive Material 3 dialog system covering all subsystems: `ENGINE_PRIVILEGE`, `BANK_MODE`, `SIM_SWITCHER`, `WORKFLOWS`, and `COORDINATES`.
+  - Explains technical mechanisms (e.g. how banking apps scan accessibility registries, direct modem telephony IPC, and pointer location overlay calibration).
+  - Outlines exact prerequisites, elevation levels (Root vs Shizuku), and step-by-step usage instructions.
+  - Integrated `(?)` info buttons on all cards in `HomeScreen.kt` and top app bar guide action.
 
+### 2. Reactive UI Feedback Channel & Snackbars
+* **`MainViewModel.kt`**:
+  - Added reactive `_uiEvent = MutableSharedFlow<String>()` channel.
+  - Emits immediate visual snackbar messages whenever actions are tapped:
+    - Privilege warning when `PrivilegeLevel.NONE`: `"⚠️ Elevation Required: Connect Shizuku or grant Root..."`
+    - Bank Mode activation/deactivation feedback with count of paused services.
+    - SIM switcher line toggle confirmations and single-SIM warnings.
+    - Pointer Location overlay toggle confirmations.
+    - Real-time workflow execution start, step running, and completion feedback.
+* **`HomeScreen.kt`**:
+  - Wired `SnackbarHost(snackbarHostState)` with cyberpunk styled container and action buttons.
 
+### 3. Smart Pre-requisite Badges & Disabled States
+* **`WorkflowCard.kt`**:
+  - Added `isPackageInstalled` check. Displays amber warning pill: `"⚠️ Target app \"[App Name]\" not installed"` so users immediately understand why pre-seeded workflows (e.g., Samsung Health) cannot launch.
+* **`HomeScreen.kt`**:
+  - `PrivilegeStatusCard`: Added prominent warning banner when unprivileged with direct instruction to launch Shizuku or grant Root.
+  - `BankModeCard`: Added informational notice if 0 accessibility services are currently enabled.
+  - `SimSwitcherCard`: Added single-SIM warning badge and dynamically disabled toggle button when `simSlots.size < 2` with clear label `"DUAL-SIM REQUIRED (ONLY 1 SIM FOUND)"`.
+
+### 4. Version Bump
+* **`app/build.gradle.kts`**: Bumped `versionCode = 5` and `versionName = "1.2.4"`.

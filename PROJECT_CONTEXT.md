@@ -112,8 +112,19 @@ Whenever code is pushed to `main` or a `v*` tag is created:
    - Automatically restarts the updated application via `am start`.
    - Falls back to `androidx.core.content.FileProvider` for standard PackageInstaller flow if unprivileged.
 3. **UI Notification**:
-   - `UpdateBannerCard.kt`: Dynamic banner displaying version, notes, download progress, and contextual 1-tap install.
-   - `UpdateStatusDialog.kt`: Modal comparison grid, release changelog viewer, and live download/install spinner.
+    - `UpdateBannerCard.kt`: Dynamic banner displaying version, notes, download progress, and contextual 1-tap install.
+    - `UpdateStatusDialog.kt`: Modal comparison grid, release changelog viewer, and live download/install spinner.
+
+### F. Interactive Feedback & Feature Guidance (`app/src/main/java/com/autoroid/app/ui`)
+1. **Reactive UI Event Channel (`MainViewModel.kt`)**:
+   - `_uiEvent = MutableSharedFlow<String>()` delivering real-time user-facing status feedback.
+   - Pops Snackbars on the screen for every tap (e.g., privilege warnings, Bank Mode state changes, SIM switch results, workflow steps).
+2. **Contextual Feature Guidance Dialogs (`dialogs/FeatureInfoDialog.kt`)**:
+   - Comprehensive troubleshooting and architectural guide modals covering Root/Shizuku elevation, Bank Mode security mechanics, dual-SIM hardware constraints, workflow automation, and coordinate calibration.
+3. **Smart Badges & Missing Prerequisites**:
+   - Amber warnings on `WorkflowCard` when target applications are uninstalled.
+   - Dual-SIM card dynamic detection and button disabling when fewer than 2 SIMs are installed.
+   - Prominent privilege warning banner when `PrivilegeLevel.NONE`.
 
 ---
 
@@ -177,6 +188,8 @@ Whenever code is pushed to `main` or a `v*` tag is created:
 │       │   └── ui/
 │       │       ├── MainActivity.kt          # Host activity & Shizuku permission listener
 │       │       ├── MainViewModel.kt         # Reactive state manager (StateFlow)
+│       │       ├── dialogs/
+│       │       │   └── FeatureInfoDialog.kt # Interactive help & architectural guide dialogs
 │       │       ├── theme/Theme.kt           # Cyber dark Material 3 theme
 │       │       └── screens/HomeScreen.kt    # Primary Compose dashboard
 │       └── res/

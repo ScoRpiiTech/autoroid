@@ -29,7 +29,9 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import com.autoroid.app.ui.theme.AmberWarn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,12 +60,16 @@ import com.autoroid.app.ui.theme.TextSecondary
 fun WorkflowCard(
     workflow: Workflow,
     executionState: ExecutionState,
+    isPackageInstalled: (String) -> Boolean = { true },
     onRun: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val isRunningThis = executionState.workflowId == workflow.id && executionState.isRunning
     var isExpanded by remember { mutableStateOf(false) }
+
+    val missingApp = workflow.steps.filterIsInstance<com.autoroid.app.feature.workflow.model.WorkflowStep.LaunchApp>()
+        .firstOrNull { !isPackageInstalled(it.packageName) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -93,6 +99,26 @@ fun WorkflowCard(
                             color = TextSecondary,
                             lineHeight = 16.sp
                         )
+                    }
+                    if (missingApp != null) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Surface(
+                            color = AmberWarn.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(6.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AmberWarn.copy(alpha = 0.35f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "⚠️ Target app \"${missingApp.appLabel.ifBlank { missingApp.packageName }}\" not installed",
+                                    fontSize = 11.sp,
+                                    color = AmberWarn,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
                     }
                 }
 
