@@ -2,7 +2,10 @@ package com.autoroid.app.feature.update
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.ParcelFileDescriptor
 import androidx.core.content.FileProvider
+import com.autoroid.app.core.privilege.PrivilegeLevel
 import com.autoroid.app.core.privilege.PrivilegeManager
 import com.autoroid.app.feature.update.model.UpdateInfo
 import com.autoroid.app.feature.update.model.UpdateState
@@ -12,7 +15,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import moe.shizuku.server.IShizukuService
 import org.json.JSONObject
+import rikka.shizuku.Shizuku
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
@@ -33,10 +38,22 @@ class UpdateManager(
 
     val currentVersion: String
         get() = try {
-            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.2.1"
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.2.3"
         } catch (_: Exception) {
-            "1.2.1"
+            "1.2.3"
         }
+
+    fun isApkDownloaded(apkFile: File, targetTag: String): Boolean {
+        if (!apkFile.exists() || apkFile.length() <= 0) return false
+        return try {
+            val archiveInfo = context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)
+            val targetClean = targetTag.trim().removePrefix("v").removePrefix("V")
+            val archiveClean = archiveInfo?.versionName?.trim()?.removePrefix("v")?.removePrefix("V")
+            archiveClean != null && archiveClean == targetClean
+        } catch (_: Exception) {
+            false
+        }
+    }
 
     suspend fun checkForUpdates(): UpdateInfo? = withContext(Dispatchers.IO) {
         _updateStatus.value = UpdateStatus(state = UpdateState.CHECKING, message = "Checking GitHub for updates...")
@@ -83,11 +100,9 @@ class UpdateManager(
                 }
             }
 
-            val currentVersion = try {
-                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.0"
-            } catch (_: Exception) {
-                "1.0.0"
-            }
+            val updatesDir = File(context.cacheDir, "updates")
+            val apkFile = File(updatesDir, "autoroid-update.apk")
+            val isDownloaded = isApkDownloaded(apkFile, tagName)
 
             val isNewer = isNewerVersion(tagName, currentVersion)
             val info = UpdateInfo(
@@ -95,16 +110,21 @@ class UpdateManager(
                 releaseNotes = releaseNotes,
                 downloadUrl = downloadUrl,
                 hasUpdate = isNewer && downloadUrl.isNotBlank(),
-                publishedAt = publishedAt
+                publishedAt = publishedAt,
+                isDownloaded = isDownloaded
             )
 
             if (info.hasUpdate) {
                 _updateStatus.value = UpdateStatus(
                     state = UpdateState.AVAILABLE,
                     updateInfo = info,
-                    message = "New version $tagName available!"
+                    message = if (isDownloaded) "Update $tagName is downloaded and ready to install!" else "New version $tagName available!"
                 )
             } else {
+                // If already on latest, clean up any old cached update APK
+                if (apkFile.exists()) {
+                    try { apkFile.delete() } catch (_: Exception) {}
+                }
                 _updateStatus.value = UpdateStatus(
                     state = UpdateState.UP_TO_DATE,
                     updateInfo = info,
@@ -128,15 +148,27 @@ class UpdateManager(
             return@withContext
         }
 
+        val updatesDir = File(context.cacheDir, "updates").apply { mkdirs() }
+        val apkFile = File(updatesDir, "autoroid-update.apk")
+
+        // If package is already downloaded and verified, skip downloading!
+        if (isApkDownloaded(apkFile, updateInfo.latestVersion)) {
+            _updateStatus.value = UpdateStatus(
+                state = UpdateState.INSTALLING,
+                updateInfo = updateInfo.copy(isDownloaded = true),
+                progressPercent = 100,
+                message = "Package already downloaded. Installing update..."
+            )
+            installApk(apkFile, updateInfo)
+            return@withContext
+        }
+
         _updateStatus.value = UpdateStatus(
             state = UpdateState.DOWNLOADING,
             updateInfo = updateInfo,
             progressPercent = 0,
             message = "Starting download..."
         )
-
-        val updatesDir = File(context.cacheDir, "updates").apply { mkdirs() }
-        val apkFile = File(updatesDir, "autoroid-update.apk")
 
         try {
             val url = URL(updateInfo.downloadUrl)
@@ -179,12 +211,12 @@ class UpdateManager(
             // Installation Phase
             _updateStatus.value = UpdateStatus(
                 state = UpdateState.INSTALLING,
-                updateInfo = updateInfo,
+                updateInfo = updateInfo.copy(isDownloaded = true),
                 progressPercent = 100,
                 message = "Installing update..."
             )
 
-            installApk(apkFile)
+            installApk(apkFile, updateInfo)
 
         } catch (e: Exception) {
             _updateStatus.value = UpdateStatus(
@@ -194,14 +226,67 @@ class UpdateManager(
         }
     }
 
-    private suspend fun installApk(apkFile: File) {
-        val apkPath = apkFile.absolutePath
+    private suspend fun performElevatedInstall(apkFile: File): Boolean {
+        val currentLevel = privilegeManager.currentLevel.value
 
-        // Priority 1: Elevated silent install via Root or Shizuku (0 user prompts)
-        val elevatedCmd = "pm install -r -d $apkPath"
-        val elevatedResult = privilegeManager.executeElevated(elevatedCmd)
+        // Priority 1A: Direct root execution (UID 0 can access /data/user/0 directly)
+        if (currentLevel == PrivilegeLevel.ROOT) {
+            val res = privilegeManager.executeElevated("pm install -r -d ${apkFile.absolutePath}")
+            if (res.isSuccess && !res.stdout.contains("Failure", ignoreCase = true) && !res.stderr.contains("Failure", ignoreCase = true)) {
+                return true
+            }
+        }
 
-        if (elevatedResult.isSuccess) {
+        // Priority 1B: Shizuku IPC stream execution (UID 2000 shell pipes to /data/local/tmp)
+        if (currentLevel == PrivilegeLevel.SHIZUKU || Shizuku.pingBinder()) {
+            try {
+                if (Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+                    val binder = Shizuku.getBinder()
+                    if (binder != null) {
+                        val service = IShizukuService.Stub.asInterface(binder)
+                        val tmpApk = "/data/local/tmp/autoroid-update.apk"
+
+                        // Stream APK to /data/local/tmp
+                        val catProcess = service.newProcess(
+                            arrayOf("sh", "-c", "cat > $tmpApk"),
+                            null,
+                            null
+                        )
+                        ParcelFileDescriptor.AutoCloseOutputStream(catProcess.outputStream).use { out ->
+                            apkFile.inputStream().use { input ->
+                                input.copyTo(out)
+                            }
+                        }
+                        val catExit = catProcess.waitFor()
+                        if (catExit == 0) {
+                            val installProcess = service.newProcess(
+                                arrayOf("sh", "-c", "pm install -r -d $tmpApk && rm -f $tmpApk"),
+                                null,
+                                null
+                            )
+                            val stdout = ParcelFileDescriptor.AutoCloseInputStream(installProcess.inputStream)
+                                .bufferedReader().use { it.readText() }
+                            val exitCode = installProcess.waitFor()
+                            if (exitCode == 0 && stdout.contains("Success", ignoreCase = true)) {
+                                return true
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // Fall back
+            }
+        }
+
+        // Priority 1C: Fallback elevated command
+        val fallback = privilegeManager.executeElevated("pm install -r -d ${apkFile.absolutePath}")
+        return fallback.isSuccess && fallback.stdout.contains("Success", ignoreCase = true)
+    }
+
+    private suspend fun installApk(apkFile: File, updateInfo: UpdateInfo) {
+        val installSuccess = performElevatedInstall(apkFile)
+
+        if (installSuccess) {
             _updateStatus.value = UpdateStatus(
                 state = UpdateState.UP_TO_DATE,
                 message = "Update installed successfully! Restarting..."
@@ -214,6 +299,7 @@ class UpdateManager(
         // Priority 2: Standard Android PackageInstaller Fallback
         withContext(Dispatchers.Main) {
             try {
+                apkFile.setReadable(true, false)
                 val uri = FileProvider.getUriForFile(
                     context,
                     "${context.packageName}.fileprovider",
@@ -225,6 +311,11 @@ class UpdateManager(
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)
+                _updateStatus.value = UpdateStatus(
+                    state = UpdateState.AVAILABLE,
+                    updateInfo = updateInfo.copy(isDownloaded = true),
+                    message = "System installer opened. Please confirm the installation prompt."
+                )
             } catch (e: Exception) {
                 _updateStatus.value = UpdateStatus(
                     state = UpdateState.ERROR,

@@ -266,7 +266,11 @@ fun UpdateStatusDialog(
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(
-                                    text = "New release ${info?.latestVersion} is available to install!",
+                                    text = if (info?.isDownloaded == true) {
+                                        "Release ${info.latestVersion} is downloaded and ready to install!"
+                                    } else {
+                                        "New release ${info?.latestVersion} is available to install!"
+                                    },
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = NeonGreen
@@ -393,7 +397,10 @@ fun UpdateStatusDialog(
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = NeonGreen, contentColor = Color.Black)
                         ) {
-                            Text(text = "Install Update", fontWeight = FontWeight.Bold)
+                            Text(
+                                text = if (info.isDownloaded) "Install Update" else "Download & Install",
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     } else if (state == UpdateState.DOWNLOADING || state == UpdateState.INSTALLING) {
                         Button(

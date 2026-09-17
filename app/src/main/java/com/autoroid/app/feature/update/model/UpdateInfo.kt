@@ -5,7 +5,8 @@ data class UpdateInfo(
     val releaseNotes: String,
     val downloadUrl: String,
     val hasUpdate: Boolean,
-    val publishedAt: String = ""
+    val publishedAt: String = "",
+    val isDownloaded: Boolean = false
 )
 
 enum class UpdateState {

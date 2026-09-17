@@ -161,5 +161,37 @@
 ### 3. Public Open-Source Security Guidelines
 * Enforced strict repository security and privacy policies prohibiting any future commitment of secrets, keystores, tokens, or private credentials.
 
+---
+
+## [v1.2.3] - Version Synchronization & Smart Update Cache Pipeline
+* **Date:** 2026-09-17
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
+
+### 1. Version Alignment & Loop Elimination
+* **`app/build.gradle.kts`**: Bumped `versionCode = 4` and `versionName = "1.2.3"`.
+* Fixed root cause of infinite update loop: previously, published GitHub release tags were ahead of internal Gradle `versionName`, causing the app to permanently detect newer versions on GitHub even after completing an update.
+
+### 2. Smart Downloaded Package Verification
+* **`UpdateInfo.kt`**: Added `isDownloaded: Boolean` flag to update status model.
+* **`UpdateManager.kt`**:
+  - Added `isApkDownloaded(apkFile, targetTag)` using Android `PackageManager.getPackageArchiveInfo()`.
+  - Automatically verifies if cached APK already matches the latest remote tag.
+  - Skips redundant 40MB downloads if the package is already downloaded in local cache.
+  - Automatically cleans up obsolete cached APKs once the installed version matches the latest release.
+
+### 3. Elevated Silent Self-Installation Across Root & Shizuku
+* **`UpdateManager.kt`**:
+  - **Root Path:** Directly executes `pm install -r -d <apkPath>` (UID 0).
+  - **Shizuku Path:** Streams APK bytes to `/data/local/tmp/autoroid-update.apk` via remote shell stdin (`cat > /data/local/tmp/...`), executes elevated `pm install -r -d /data/local/tmp/...`, and cleans up the temporary file with 0 user prompts.
+  - **PackageInstaller Fallback:** Safely flags file readability and triggers `FileProvider` with user notification if elevated privileges are unavailable.
+
+### 4. UI Polish & Contextual Action Buttons
+* **`UpdateStatusDialog.kt`**:
+  - Dynamically updates action button between `"Install Update"` (when already cached) and `"Download & Install"` (when pending download).
+  - Updates status badge to `"Release vX.X.X is downloaded and ready to install!"`.
+* **`UpdateBannerCard.kt`**:
+  - Shows `"Downloaded • Ready to install"` and `"SELF-INSTALL UPDATE"` button when package is present locally.
+
+
 
 

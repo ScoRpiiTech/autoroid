@@ -88,7 +88,7 @@ fun UpdateBannerCard(
                             color = TextPrimary
                         )
                         Text(
-                            text = "GitHub Release • Ready to install",
+                            text = if (info.isDownloaded) "Downloaded • Ready to install" else "GitHub Release • Ready to download",
                             fontSize = 11.sp,
                             color = NeonGreen
                         )
@@ -172,7 +172,7 @@ fun UpdateBannerCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "DOWNLOAD & SELF-INSTALL",
+                        text = if (info.isDownloaded) "SELF-INSTALL UPDATE" else "DOWNLOAD & SELF-INSTALL",
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
                     )

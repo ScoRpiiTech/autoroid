@@ -105,13 +105,15 @@ Whenever code is pushed to `main` or a `v*` tag is created:
 1. **GitHub Releases Client (`UpdateManager.kt`)**:
    - Queries `https://api.github.com/repos/ScoRpiiTech/autoroid/releases/latest`.
    - Parses semver release tags, markdown notes, and APK assets.
-   - Streams APK downloads to app cache with live percentage reporting.
+   - Smart local cache: uses `PackageManager.getPackageArchiveInfo()` to verify if the APK is already downloaded, skipping redundant downloads.
 2. **Elevated Silent Self-Installation**:
-   - Executes `pm install -r -d <apkPath>` via Root or Shizuku without user prompts.
+   - **Root:** Direct execution of `pm install -r -d <apkPath>` (UID 0).
+   - **Shizuku:** Streams APK bytes to `/data/local/tmp/autoroid-update.apk` via remote shell stdin (`cat`), runs `pm install -r -d`, and deletes temp file (UID 2000 ADB).
    - Automatically restarts the updated application via `am start`.
-   - Falls back to `androidx.core.content.FileProvider` for standard PackageInstaller flow.
+   - Falls back to `androidx.core.content.FileProvider` for standard PackageInstaller flow if unprivileged.
 3. **UI Notification**:
-   - `UpdateBannerCard.kt`: Dynamic banner displaying version, notes, download progress, and 1-tap install.
+   - `UpdateBannerCard.kt`: Dynamic banner displaying version, notes, download progress, and contextual 1-tap install.
+   - `UpdateStatusDialog.kt`: Modal comparison grid, release changelog viewer, and live download/install spinner.
 
 ---
 
@@ -155,11 +157,10 @@ Whenever code is pushed to `main` or a `v*` tag is created:
 │       │   │   ├── update/
 │       │   │   │   ├── model/
 │       │   │   │   │   └── UpdateInfo.kt          # Update models & states
-│       │   │   │   ├── runner/
-│       │   │   │   │   └── UpdateManager.kt       # GitHub Releases client & silent installer
-│       │   │   │   └── ui/
-│       │   │   │       ├── UpdateBannerCard.kt    # Update notification card
-│       │   │   │       └── UpdateStatusDialog.kt  # Interactive update comparison & install dialog
+│       │   │   │   ├── ui/
+│       │   │   │   │   ├── UpdateBannerCard.kt    # Update notification card
+│       │   │   │   │   └── UpdateStatusDialog.kt  # Interactive update comparison & install dialog
+│       │   │   │   └── UpdateManager.kt           # GitHub Releases client, cached verification & silent installer
 │       │   │   └── workflow/
 │       │   │       ├── model/
 │       │   │       │   ├── WorkflowStep.kt        # Step models & JSON
