@@ -11,15 +11,30 @@ import com.autoroid.app.ui.screens.HomeScreen
 import com.autoroid.app.ui.theme.AutoroidTheme
 import rikka.shizuku.Shizuku
 
+import android.os.Build
+import android.content.Intent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
+
+    private var openUpdateOnLaunch by mutableStateOf(false)
 
     private val requestPhonePermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (isGranted) {
                 viewModel.log("READ_PHONE_STATE permission granted.")
                 viewModel.refreshAll()
+            }
+        }
+
+    private val requestNotificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+                viewModel.log("POST_NOTIFICATIONS permission granted.")
             }
         }
 
@@ -48,6 +63,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        openUpdateOnLaunch = intent?.getBooleanExtra(com.autoroid.app.feature.update.UpdateManager.EXTRA_OPEN_UPDATE, false) ?: false
+
         Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)
         Shizuku.addBinderDeadListener(binderDeadListener)
         Shizuku.addRequestPermissionResultListener(requestPermissionResultListener)
@@ -56,13 +73,28 @@ class MainActivity : ComponentActivity() {
             requestPhonePermissionLauncher.launch(Manifest.permission.READ_PHONE_STATE)
         }
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
         setContent {
             AutoroidTheme {
                 HomeScreen(
                     viewModel = viewModel,
-                    onRequestShizuku = { requestShizukuPermission() }
+                    onRequestShizuku = { requestShizukuPermission() },
+                    initialShowUpdateDialog = openUpdateOnLaunch
                 )
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(com.autoroid.app.feature.update.UpdateManager.EXTRA_OPEN_UPDATE, false)) {
+            openUpdateOnLaunch = true
         }
     }
 

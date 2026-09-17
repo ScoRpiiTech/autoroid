@@ -1,9 +1,14 @@
 package com.autoroid.app.feature.update
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.ParcelFileDescriptor
+import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import com.autoroid.app.core.privilege.PrivilegeLevel
 import com.autoroid.app.core.privilege.PrivilegeManager
@@ -30,14 +35,34 @@ class UpdateManager(
     private val _updateStatus = MutableStateFlow(UpdateStatus())
     val updateStatus: StateFlow<UpdateStatus> = _updateStatus.asStateFlow()
 
+    private val notificationManager =
+        context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+
     companion object {
         const val GITHUB_OWNER = "ScoRpiiTech"
         const val GITHUB_REPO = "autoroid"
         private const val API_URL = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest"
+        private const val CHANNEL_ID = "autoroid_app_updates"
+        private const val NOTIFICATION_ID_UPDATE = 3001
+        const val EXTRA_OPEN_UPDATE = "EXTRA_OPEN_UPDATE"
     }
 
     init {
         purgeInstalledOrStaleApks()
+        createNotificationChannel()
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "App Updates",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notifies when a new Autoroid version is available on GitHub"
+            }
+            notificationManager?.createNotificationChannel(channel)
+        }
     }
 
     val currentVersion: String
@@ -154,9 +179,11 @@ class UpdateManager(
                     updateInfo = info,
                     message = if (isDownloaded) "Update $tagName is downloaded and ready to install!" else "New version $tagName available!"
                 )
+                showUpdateNotification(info)
             } else {
-                // If already on latest, clean up any old cached update APK
+                // If already on latest, clean up any old cached update APK and cancel notification
                 purgeAllUpdateFiles()
+                cancelUpdateNotification()
                 _updateStatus.value = UpdateStatus(
                     state = UpdateState.UP_TO_DATE,
                     updateInfo = info,
@@ -172,6 +199,52 @@ class UpdateManager(
             )
             null
         }
+    }
+
+    fun showUpdateNotification(info: UpdateInfo) {
+        val intent = Intent(context, com.autoroid.app.ui.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(EXTRA_OPEN_UPDATE, true)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val snippet = info.releaseNotes
+            .lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotBlank() && !it.startsWith("#") }
+            .take(3)
+            .joinToString("\n")
+            .ifBlank { "New features, performance enhancements, and bug fixes." }
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(com.autoroid.app.R.drawable.ic_shield)
+            .setContentTitle("🚀 Autoroid ${info.latestVersion} Available")
+            .setContentText("New version ready. Tap to review & install.")
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .setBigContentTitle("🚀 Autoroid ${info.latestVersion} Available")
+                    .bigText("Installed: v$currentVersion ➔ Available: ${info.latestVersion}\n\n$snippet")
+            )
+            .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+
+        try {
+            notificationManager?.notify(NOTIFICATION_ID_UPDATE, notification)
+        } catch (_: SecurityException) {
+        }
+    }
+
+    fun cancelUpdateNotification() {
+        try {
+            notificationManager?.cancel(NOTIFICATION_ID_UPDATE)
+        } catch (_: Exception) {}
     }
 
     fun extractChangelogForVersion(fullChangelog: String, targetVersion: String): String? {
@@ -364,6 +437,7 @@ class UpdateManager(
         val installSuccess = performElevatedInstall(apkFile)
 
         if (installSuccess) {
+            cancelUpdateNotification()
             _updateStatus.value = UpdateStatus(
                 state = UpdateState.UP_TO_DATE,
                 message = "Update installed successfully! Restarting..."

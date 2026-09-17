@@ -394,4 +394,29 @@
 ### 4. Version Bump
 * **`app/build.gradle.kts`**: Bumped `versionCode = 9` and `versionName = "1.2.8"`.
 
+---
+
+## [v1.2.9] - Android System Notification Engine for Releases & Updates
+* **Date:** 2026-09-18
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
+
+### 1. System Notification Shade Alerts
+* **`UpdateManager.kt`**:
+  - Registered high-importance notification channel: `autoroid_app_updates` ("App Updates").
+  - Posts heads-up Android status bar notification whenever a newer release tag is detected on GitHub (`🚀 Autoroid vX.Y.Z Available`).
+  - Includes expandable BigTextStyle preview with version comparison and changelog highlights.
+  - Tapping the notification launches `MainActivity` with intent extra `EXTRA_OPEN_UPDATE = true`, automatically displaying the interactive update dialog.
+  - Automatically cancels notification once the update is installed or when the app is confirmed up-to-date.
+
+### 2. Background Startup & Boot Notification Trigger
+* **`BootReceiver.kt`**:
+  - Added background `updateManager.checkForUpdates()` call upon device boot (`ACTION_BOOT_COMPLETED`), alerting users to new updates even before opening the app.
+* **`MainViewModel.kt` & `MainActivity.kt`**:
+  - Added runtime `android.permission.POST_NOTIFICATIONS` permission launcher on Android 13+ (API 33+).
+  - Automatically grants `POST_NOTIFICATIONS` via elevated Root/Shizuku execution (`pm grant com.autoroid.app android.permission.POST_NOTIFICATIONS`).
+
+### 3. Version Bump
+* **`app/build.gradle.kts`**: Bumped `versionCode = 10` and `versionName = "1.2.9"`.
+
+
 

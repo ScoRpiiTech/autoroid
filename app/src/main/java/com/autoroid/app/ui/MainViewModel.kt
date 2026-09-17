@@ -85,6 +85,7 @@ class MainViewModel : ViewModel() {
             if (level != PrivilegeLevel.NONE) {
                 privilegeManager.executeElevated("pm grant com.autoroid.app android.permission.READ_PHONE_STATE")
                 privilegeManager.executeElevated("pm grant com.autoroid.app android.permission.WRITE_SECURE_SETTINGS")
+                privilegeManager.executeElevated("pm grant com.autoroid.app android.permission.POST_NOTIFICATIONS")
             }
 
             accessibilityController.refreshState()

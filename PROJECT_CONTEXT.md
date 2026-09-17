@@ -128,7 +128,12 @@ Whenever code is pushed to `main` or a `v*` tag is created:
    - **Shizuku:** Streams APK bytes to `/data/local/tmp/autoroid-update.apk` via remote shell stdin (`cat`), runs `pm install -r -d`, and deletes temp file (UID 2000 ADB).
    - Automatically restarts the updated application via `am start`.
    - Falls back to `androidx.core.content.FileProvider` for standard PackageInstaller flow if unprivileged.
-3. **UI Notification**:
+3. **System Notifications & Background Alerting**:
+   - `UpdateManager.kt` registers `autoroid_app_updates` NotificationChannel.
+   - Posts heads-up status bar notifications (`🚀 Autoroid vX.Y.Z Available`) with expandable changelog preview and 1-tap open intent.
+   - Background check on boot via `BootReceiver.kt` alerting users even before the app is opened.
+   - Automatic notification dismissal upon installation or when up to date.
+4. **UI Components**:
     - `UpdateBannerCard.kt`: Dynamic banner displaying version, notes, download progress, and contextual 1-tap install.
     - `UpdateStatusDialog.kt`: Modal comparison grid, release changelog viewer, and live download/install spinner.
 

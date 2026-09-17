@@ -93,7 +93,8 @@ import com.autoroid.app.ui.theme.TextSecondary
 @Composable
 fun HomeScreen(
     viewModel: MainViewModel,
-    onRequestShizuku: () -> Unit
+    onRequestShizuku: () -> Unit,
+    initialShowUpdateDialog: Boolean = false
 ) {
     val privilegeLevel by viewModel.privilegeLevel.collectAsState()
     val isBankModeActive by viewModel.isBankModeActive.collectAsState()
@@ -125,7 +126,7 @@ fun HomeScreen(
     var customCmd by remember { mutableStateOf("") }
     var showCreateWorkflowDialog by remember { mutableStateOf(false) }
     var workflowToEdit by remember { mutableStateOf<Workflow?>(null) }
-    var showUpdateDialog by remember { mutableStateOf(false) }
+    var showUpdateDialog by remember { mutableStateOf(initialShowUpdateDialog) }
     var dismissedUpdateVersion by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
