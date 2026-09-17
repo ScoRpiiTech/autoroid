@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.HelpOutline
@@ -95,6 +96,7 @@ fun HomeScreen(
     val privilegeLevel by viewModel.privilegeLevel.collectAsState()
     val isBankModeActive by viewModel.isBankModeActive.collectAsState()
     val activeServices by viewModel.activeServicesList.collectAsState()
+    val pausedServices by viewModel.pausedServicesList.collectAsState()
     val simSlots by viewModel.simSlots.collectAsState()
     val activeDataSubId by viewModel.activeDataSubId.collectAsState()
     val nativeVer by viewModel.nativeVersion.collectAsState()
@@ -243,6 +245,7 @@ fun HomeScreen(
                 BankModeCard(
                     isActive = isBankModeActive,
                     activeServices = activeServices,
+                    pausedServices = pausedServices,
                     onToggle = { viewModel.toggleBankMode() },
                     onHelpClick = { activeHelpType = FeatureHelpType.BANK_MODE }
                 )
@@ -514,15 +517,23 @@ fun PrivilegeStatusCard(
 fun BankModeCard(
     isActive: Boolean,
     activeServices: List<String>,
+    pausedServices: List<String> = emptyList(),
     onToggle: () -> Unit,
     onHelpClick: () -> Unit = {}
 ) {
+    val isAllClear = !isActive && activeServices.isEmpty()
+    val borderColor = when {
+        isActive -> NeonGreen
+        activeServices.isNotEmpty() -> AmberWarn.copy(alpha = 0.6f)
+        else -> NeonGreen.copy(alpha = 0.4f)
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = CardSurface),
         border = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(if (isActive) NeonGreen else CardBorder)
+            brush = androidx.compose.ui.graphics.SolidColor(borderColor)
         )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -535,7 +546,7 @@ fun BankModeCard(
                     Icon(
                         imageVector = Icons.Default.Security,
                         contentDescription = "Bank Mode",
-                        tint = if (isActive) NeonGreen else CyberCyan,
+                        tint = if (isActive || isAllClear) NeonGreen else AmberWarn,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
@@ -547,10 +558,17 @@ fun BankModeCard(
                             color = TextPrimary
                         )
                         Text(
-                            text = if (isActive) "PROTECTED (Accessibility Stripped)" else "NORMAL (Services Running)",
+                            text = when {
+                                isActive -> "PROTECTED (${pausedServices.size} Service(s) Paused)"
+                                activeServices.isNotEmpty() -> "VULNERABLE (${activeServices.size} Service(s) Active)"
+                                else -> "ALL CLEAR (Safe For Banks)"
+                            },
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = if (isActive) NeonGreen else AmberWarn
+                            color = when {
+                                isActive || isAllClear -> NeonGreen
+                                else -> AmberWarn
+                            }
                         )
                     }
                 }
@@ -567,36 +585,74 @@ fun BankModeCard(
 
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "Temporarily flushes all accessibility services and flags to prevent banking apps from detecting automation tools or overlays. Tap again to restore all your previous services.",
+                text = "Temporarily flushes accessibility services and registry flags so banking apps cannot detect automation tools or overlays. Restores your exact services when you finish.",
                 fontSize = 13.sp,
                 color = TextSecondary,
                 lineHeight = 18.sp
             )
 
-            if (activeServices.isEmpty() && !isActive) {
-                Spacer(modifier = Modifier.height(8.dp))
+            if (isAllClear) {
+                Spacer(modifier = Modifier.height(10.dp))
                 Surface(
-                    color = DeepBackground,
+                    color = NeonGreen.copy(alpha = 0.08f),
                     shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, CardBorder),
+                    border = BorderStroke(1.dp, NeonGreen.copy(alpha = 0.25f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = NeonGreen,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "All Clear: No accessibility services are currently enabled on your phone. Banking apps will not detect or block anything.",
+                            fontSize = 11.sp,
+                            color = TextPrimary,
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+            }
+
+            if (isActive && pausedServices.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Paused Services (${pausedServices.size}) • Ready to restore:",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NeonGreen
+                )
+                pausedServices.take(3).forEach { service ->
+                    val shortName = service.substringAfterLast("/")
                     Text(
-                        text = "ℹ️ No accessibility services currently active on your phone.",
+                        text = "• $shortName",
                         fontSize = 11.sp,
-                        color = TextSecondary,
-                        modifier = Modifier.padding(8.dp)
+                        fontFamily = FontFamily.Monospace,
+                        color = TextPrimary
+                    )
+                }
+                if (pausedServices.size > 3) {
+                    Text(
+                        text = "...and ${pausedServices.size - 3} more",
+                        fontSize = 11.sp,
+                        color = TextSecondary
                     )
                 }
             }
 
-            if (activeServices.isNotEmpty() && !isActive) {
+            if (!isActive && activeServices.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Running Services (${activeServices.size}):",
+                    text = "Active Services (${activeServices.size}) • May trigger bank security blocks:",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = TextSecondary
+                    color = AmberWarn
                 )
                 activeServices.take(3).forEach { service ->
                     val shortName = service.substringAfterLast("/")
@@ -619,15 +675,26 @@ fun BankModeCard(
             Spacer(modifier = Modifier.height(14.dp))
             Button(
                 onClick = onToggle,
+                enabled = !isAllClear,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isActive) NeonGreen else CyberCyan,
-                    contentColor = Color.Black
+                    containerColor = when {
+                        isActive -> NeonGreen
+                        activeServices.isNotEmpty() -> CyberCyan
+                        else -> Color.DarkGray
+                    },
+                    contentColor = if (isAllClear) TextSecondary else Color.Black,
+                    disabledContainerColor = Color(0xFF1E242B),
+                    disabledContentColor = TextSecondary
                 ),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = if (isActive) "RESTORE ACCESSIBILITY SERVICES" else "ACTIVATE BANK MODE (ONE-TAP)",
+                    text = when {
+                        isActive -> if (pausedServices.isNotEmpty()) "RESTORE ${pausedServices.size} SERVICE(S)" else "RESTORE ACCESSIBILITY SERVICES"
+                        activeServices.isNotEmpty() -> "ACTIVATE BANK MODE (PAUSE ${activeServices.size} SERVICES)"
+                        else -> "ALL CLEAR • NO SERVICES ACTIVE"
+                    },
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
@@ -644,6 +711,9 @@ fun SimSwitcherCard(
     onSelectSubId: (Int) -> Unit,
     onHelpClick: () -> Unit = {}
 ) {
+    val alternateSim = simSlots.firstOrNull { it.subscriptionId != activeSubId && !it.isDefaultData }
+        ?: simSlots.firstOrNull { it.subscriptionId != activeSubId }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -672,7 +742,7 @@ fun SimSwitcherCard(
                             color = TextPrimary
                         )
                         Text(
-                            text = "Current Active SubId: ${activeSubId ?: "Auto"}",
+                            text = "Active Data SubId: ${activeSubId ?: "Auto"}",
                             fontSize = 11.sp,
                             color = CyberCyan
                         )
@@ -691,7 +761,7 @@ fun SimSwitcherCard(
 
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "Instant mobile data failover between SIM 1 and SIM 2 using elevated telephony binder calls, bypassing slow system menus.",
+                text = "Instant 1-tap mobile data switching between physical SIM and eSIM via elevated telephony IPC, bypassing Android Settings menus.",
                 fontSize = 13.sp,
                 color = TextSecondary,
                 lineHeight = 18.sp
@@ -717,7 +787,10 @@ fun SimSwitcherCard(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Single SIM active (${simSlots.size} detected) • Dual-SIM switching requires 2 SIM cards.",
+                            text = if (simSlots.isEmpty())
+                                "No SIMs detected yet • Grant Phone permission or connect Shizuku."
+                            else
+                                "Only 1 SIM detected (${simSlots.first().simType}) • Dual-SIM switcher requires 2 active lines.",
                             fontSize = 11.sp,
                             color = AmberWarn,
                             fontWeight = FontWeight.Medium
@@ -729,14 +802,14 @@ fun SimSwitcherCard(
             if (simSlots.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 simSlots.forEach { slot ->
-                    val isCurrent = slot.subscriptionId == activeSubId
+                    val isCurrent = (slot.subscriptionId == activeSubId) || slot.isDefaultData
                     Surface(
                         onClick = { onSelectSubId(slot.subscriptionId) },
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (isCurrent) DeepBackground else CardSurface,
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (isCurrent) CyberCyan else CardBorder
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isCurrent) NeonGreen.copy(alpha = 0.08f) else CardSurface,
+                        border = BorderStroke(
+                            if (isCurrent) 1.5.dp else 1.dp,
+                            if (isCurrent) NeonGreen else CardBorder
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -749,24 +822,70 @@ fun SimSwitcherCard(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
-                                Text(
-                                    text = "${slot.displayName} (Slot ${slot.slotIndex + 1})",
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 14.sp,
-                                    color = TextPrimary
-                                )
-                                Text(
-                                    text = "${slot.carrierName} • SubId ${slot.subscriptionId}",
-                                    fontSize = 12.sp,
-                                    color = TextSecondary
-                                )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                // Type badge (eSIM vs Physical SIM)
+                                Surface(
+                                    color = if (slot.isEmbedded) CyberCyan.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.08f),
+                                    shape = RoundedCornerShape(6.dp),
+                                    border = BorderStroke(1.dp, if (slot.isEmbedded) CyberCyan.copy(alpha = 0.4f) else CardBorder),
+                                    modifier = Modifier.padding(end = 10.dp)
+                                ) {
+                                    Text(
+                                        text = if (slot.isEmbedded) "eSIM" else "SIM ${if (slot.slotIndex >= 0) slot.slotIndex + 1 else slot.subscriptionId}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (slot.isEmbedded) CyberCyan else TextPrimary,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                    )
+                                }
+
+                                Column {
+                                    Text(
+                                        text = slot.displayLabel,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp,
+                                        color = TextPrimary
+                                    )
+                                    Text(
+                                        text = "${slot.carrierName} • SubId ${slot.subscriptionId}",
+                                        fontSize = 11.sp,
+                                        color = TextSecondary
+                                    )
+                                }
                             }
+
                             if (isCurrent) {
+                                Surface(
+                                    color = NeonGreen.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(6.dp),
+                                    border = BorderStroke(1.dp, NeonGreen.copy(alpha = 0.5f))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .background(NeonGreen, androidx.compose.foundation.shape.CircleShape)
+                                        )
+                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Text(
+                                            text = "ACTIVE DATA",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = NeonGreen
+                                        )
+                                    }
+                                }
+                            } else {
                                 Text(
-                                    text = "ACTIVE DATA",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    text = "TAP TO SWITCH",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
                                     color = CyberCyan
                                 )
                             }
@@ -786,8 +905,14 @@ fun SimSwitcherCard(
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
+                val buttonText = when {
+                    simSlots.size >= 2 && alternateSim != null ->
+                        "SWITCH DATA TO ${alternateSim.simType.uppercase()} (${alternateSim.displayLabel.uppercase()})"
+                    simSlots.size >= 2 -> "TOGGLE ALTERNATE SIM"
+                    else -> "DUAL-SIM REQUIRED (${simSlots.size} DETECTED)"
+                }
                 Text(
-                    text = if (simSlots.size >= 2) "TOGGLE ALTERNATE SIM" else "DUAL-SIM REQUIRED (ONLY 1 SIM)",
+                    text = buttonText,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )

@@ -230,3 +230,39 @@
 
 ### 4. Version Bump
 * **`app/build.gradle.kts`**: Bumped `versionCode = 5` and `versionName = "1.2.4"`.
+
+---
+
+## [v1.2.5] - Bank Mode State Clarification & Dual-SIM eSIM Switching Architecture
+* **Date:** 2026-09-17
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
+
+### 1. Bank Mode State Disambiguation & All Clear Mode
+* **`AccessibilityController.kt`**:
+  - Replaced ambiguous empty-string heuristic with explicit `is_bank_mode_engaged` state tracking.
+  - Resolved infinite "Restore Services" loop: previously, devices naturally having 0 accessibility services enabled were incorrectly flagged as "Bank Mode Active", rendering a broken "Restore" button with nothing to restore.
+  - Distinct state handling:
+    - **All Clear (Safe for Banks):** When 0 services are running, displays "All Clear" badge with explanation that banking apps won't detect or block anything.
+    - **Active Services:** Explicitly lists running components in amber and provides 1-tap "Activate Bank Mode (Pause X Services)".
+    - **Protected (Engaged):** Displays the exact list of paused services and allows clean restoration.
+* **`BankModeCard.kt` & `BankModeTileService.kt`**:
+  - Dynamically updates labels, subtitles, and button states based on actual running vs paused services.
+
+### 2. Dual-SIM Modem Switching with eSIM Support
+* **`TelephonyController.kt`**:
+  - Added full support for embedded subscriptions (**eSIM**, `info.isEmbedded`).
+  - Added Shizuku direct Binder IPC via `ISub.setDefaultDataSubId(targetSubId)` and `ITelephony.setDataEnabledForReason(...)`, mirroring AOSP Settings behavior.
+  - Integrated `org.lsposed.hiddenapibypass:hiddenapibypass:4.3` to access hidden telephony APIs across modern Android (Android 10 - 16).
+  - Multi-tier active data SIM query: resolves active subscription via `SubscriptionManager.getDefaultDataSubscriptionId()`, `Settings.Global.multi_sim_data_call`, and elevated `dumpsys telephony.registry`.
+  - Added elevated `dumpsys isub` block parser as fallback for devices where runtime permissions are not yet initialized.
+* **`MainActivity.kt` & `MainViewModel.kt`**:
+  - Added runtime `READ_PHONE_STATE` permission launcher.
+  - Automatically executes `pm grant com.autoroid.app android.permission.READ_PHONE_STATE` via elevated shell whenever Root or Shizuku connects.
+* **`SimSwitcherCard.kt` & `SimSwitchTileService.kt`**:
+  - Badges each slot as `[eSIM]` or `[Physical SIM]` with carrier name and SubId.
+  - Prominently displays green `[ACTIVE DATA]` badge on whichever SIM is currently powering mobile data.
+  - Dynamic button updates: displays `"SWITCH DATA TO ESIM (CARRIER)"` or `"SWITCH DATA TO PHYSICAL SIM (CARRIER)"` with immediate visual confirmation.
+
+### 3. Version Bump
+* **`app/build.gradle.kts`**: Bumped `versionCode = 6` and `versionName = "1.2.5"`.
+

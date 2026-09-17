@@ -70,14 +70,17 @@ Whenever code is pushed to `main` or a `v*` tag is created:
 ### C. System Controllers (`app/src/main/java/com/autoroid/app/feature`)
 1. **Bank Mode (`feature/accessibility/AccessibilityController.kt`)**:
    - **Problem:** Banking apps detect running accessibility services and block logins.
-   - **Solution:** Saves current `enabled_accessibility_services` to private preferences, writes `""` to `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES`, and sets `accessibility_enabled 0`.
+   - **Engaged State Machine:** Distinguishes between "All Clear" (0 services enabled, already safe), "Vulnerable" (running services detected), and "Protected" (services paused by Autoroid).
+   - **Solution:** When engaged, snapshots current `enabled_accessibility_services` to private preferences, writes `""` to `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES`, and sets `accessibility_enabled 0`.
    - **Restoration:** One-tap restore rewires the exact list of previous services back into Android settings and sets `accessibility_enabled 1`.
 2. **Dual-SIM Data Switcher (`feature/telephony/TelephonyController.kt`)**:
-   - Reads active subscriptions from `SubscriptionManager` and `dumpsys telephony.registry`.
-   - Switches default mobile data using `cmd phone set-preferred-data-subId <subId>` (with fallback to `cmd phone set-default-data-subId <subId>`).
+   - Supports Physical SIM + Physical SIM, and Physical SIM + **eSIM** (`info.isEmbedded`).
+   - Resolves active data SIM via `SubscriptionManager.getDefaultDataSubscriptionId()`, `Settings.Global.multi_sim_data_call`, and elevated `dumpsys telephony.registry`.
+   - Switches default mobile data using direct Shizuku Binder IPC (`ISub.setDefaultDataSubId(subId)` + `ITelephony.setDataEnabledForReason`), with fallbacks to `multi_sim_data_call` and `cmd phone`.
+   - Uses `org.lsposed.hiddenapibypass:hiddenapibypass:4.3` to access hidden telephony APIs on Android 10-16.
 3. **Quick Settings Tiles (`feature/tiles`)**:
-   - `BankModeTileService`: Quick Settings tile to toggle Bank Mode from the notification shade.
-   - `SimSwitchTileService`: Quick Settings tile to toggle mobile data SIM from the notification shade.
+   - `BankModeTileService`: Quick Settings tile displaying real-time protected/running/clean state.
+   - `SimSwitchTileService`: Quick Settings tile showing active SIM type and carrier name for 1-tap switching.
 
 ### D. Dynamic Workflow Engine (`app/src/main/java/com/autoroid/app/feature/workflow`)
 1. **Step Types (`model/WorkflowStep.kt`)**:

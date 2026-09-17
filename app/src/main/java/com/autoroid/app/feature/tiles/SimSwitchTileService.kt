@@ -41,9 +41,13 @@ class SimSwitchTileService : TileService() {
         val slots = telephonyController.simSlots.value
         val activeSlot = slots.firstOrNull { it.subscriptionId == activeSub }
 
-        tile.state = Tile.STATE_ACTIVE
+        tile.state = if (slots.size >= 2) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.label = getString(R.string.tile_sim_switch)
-        tile.subtitle = activeSlot?.displayName ?: if (activeSub != null) "Sub $activeSub" else "Auto"
+        tile.subtitle = when {
+            activeSlot != null -> "${activeSlot.simType}: ${activeSlot.displayLabel}"
+            activeSub != null -> "SubId: $activeSub"
+            else -> "Data SIM"
+        }
         tile.icon = Icon.createWithResource(this, R.drawable.ic_sim_card)
         tile.updateTile()
     }

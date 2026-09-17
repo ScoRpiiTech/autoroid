@@ -35,10 +35,16 @@ class BankModeTileService : TileService() {
     private fun updateTileState() {
         val tile = qsTile ?: return
         val isActive = accessibilityController.isBankModeActive.value
+        val runningCount = accessibilityController.activeServicesList.value.size
+        val pausedCount = accessibilityController.pausedServicesList.value.size
 
         tile.state = if (isActive) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.label = getString(R.string.tile_bank_mode)
-        tile.subtitle = if (isActive) "Protected (Clean)" else "Normal (Active)"
+        tile.subtitle = when {
+            isActive -> "Protected ($pausedCount Paused)"
+            runningCount > 0 -> "Active ($runningCount Services)"
+            else -> "All Clear (Clean)"
+        }
         tile.icon = Icon.createWithResource(this, R.drawable.ic_shield)
         tile.updateTile()
     }

@@ -30,6 +30,7 @@ class MainViewModel : ViewModel() {
     val privilegeLevel: StateFlow<PrivilegeLevel> = privilegeManager.currentLevel
     val isBankModeActive: StateFlow<Boolean> = accessibilityController.isBankModeActive
     val activeServicesList: StateFlow<List<String>> = accessibilityController.activeServicesList
+    val pausedServicesList: StateFlow<List<String>> = accessibilityController.pausedServicesList
     val simSlots: StateFlow<List<SimSlotInfo>> = telephonyController.simSlots
     val activeDataSubId: StateFlow<Int?> = telephonyController.activeDataSubId
     val workflows: StateFlow<List<com.autoroid.app.feature.workflow.model.Workflow>> = workflowRepository.workflows
@@ -74,6 +75,11 @@ class MainViewModel : ViewModel() {
             _isBusy.value = true
             val level = privilegeManager.refresh()
             log("Elevated privilege status: ${level.label}")
+
+            if (level != PrivilegeLevel.NONE) {
+                privilegeManager.executeElevated("pm grant com.autoroid.app android.permission.READ_PHONE_STATE")
+                privilegeManager.executeElevated("pm grant com.autoroid.app android.permission.WRITE_SECURE_SETTINGS")
+            }
 
             accessibilityController.refreshState()
             telephonyController.refreshSimState()
@@ -166,17 +172,22 @@ class MainViewModel : ViewModel() {
             _isBusy.value = true
             val willEnable = !isBankModeActive.value
             val servicesCount = activeServicesList.value.size
-            log("Toggling Bank Mode -> ${if (willEnable) "ACTIVATE (Kill Accessibility)" else "RESTORE"}")
+            val pausedCount = pausedServicesList.value.size
+
+            if (willEnable && servicesCount == 0) {
+                _uiEvent.emit("ℹ️ All Clear: No accessibility services are active on your device. Banking apps are already safe!")
+                log("Bank Mode: 0 services active, no pausing needed.")
+                _isBusy.value = false
+                return@launch
+            }
+
+            log("Toggling Bank Mode -> ${if (willEnable) "ACTIVATE (Pause Accessibility)" else "RESTORE"}")
             val res = accessibilityController.toggleBankMode()
             if (res.isSuccess) {
                 if (willEnable) {
-                    if (servicesCount > 0) {
-                        _uiEvent.emit("🛡️ Bank Mode Active: $servicesCount accessibility service(s) paused for banking.")
-                    } else {
-                        _uiEvent.emit("🛡️ Bank Mode Active: Note that no accessibility services were running.")
-                    }
+                    _uiEvent.emit("🛡️ Bank Mode Active: $servicesCount accessibility service(s) paused for banking.")
                 } else {
-                    _uiEvent.emit("✅ Bank Mode Disabled: Restored previous accessibility services.")
+                    _uiEvent.emit("✅ Restored $pausedCount accessibility service(s).")
                 }
                 log("Bank Mode updated successfully.")
             } else {
@@ -195,17 +206,22 @@ class MainViewModel : ViewModel() {
                 log("SIM switch failed: Neither Root nor Shizuku is connected.")
                 return@launch
             }
-            if (simSlots.value.size < 2) {
-                _uiEvent.emit("ℹ️ Single SIM Detected: Dual-SIM switcher requires 2 active SIM cards.")
-                log("SIM switch ignored: Only ${simSlots.value.size} SIM slot detected.")
+            val slots = simSlots.value
+            if (slots.size < 2) {
+                _uiEvent.emit("ℹ️ Dual-SIM switching requires at least 2 active SIM cards (Physical SIM + eSIM).")
+                log("SIM switch ignored: Only ${slots.size} SIM detected.")
                 return@launch
             }
             _isBusy.value = true
-            log("Switching Mobile Data to alternate SIM slot...")
-            val res = telephonyController.toggleAlternateSim()
+            val currentSub = activeDataSubId.value
+            val target = slots.firstOrNull { it.subscriptionId != currentSub } ?: slots.firstOrNull { !it.isDefaultData } ?: slots[0]
+            log("Switching Mobile Data to ${target.simType} (${target.displayLabel}, SubId: ${target.subscriptionId})...")
+            _uiEvent.emit("📶 Switching data to ${target.simType} (${target.displayLabel})...")
+
+            val res = telephonyController.switchToSubId(target.subscriptionId)
             if (res.isSuccess) {
-                _uiEvent.emit("📶 Switched default mobile data to alternate SIM slot.")
-                log("Data switch succeeded.")
+                _uiEvent.emit("📶 Active Mobile Data is now on ${target.simType} (${target.displayLabel}).")
+                log("Data switch succeeded: ${target.simType} (${target.displayLabel}) is active.")
             } else {
                 val err = res.stderr.ifBlank { "Exit code ${res.exitCode}" }
                 _uiEvent.emit("⚠️ Data switch failed: $err")
@@ -221,15 +237,19 @@ class MainViewModel : ViewModel() {
                 _uiEvent.emit("⚠️ Elevation Required: Connect Shizuku or grant Root to switch SIMs.")
                 return@launch
             }
+            val target = simSlots.value.firstOrNull { it.subscriptionId == subId }
+            val label = target?.let { "${it.simType} (${it.displayLabel})" } ?: "SubId $subId"
             _isBusy.value = true
-            log("Switching Data SIM to Subscription ID: $subId")
+            log("Switching Data SIM to $label")
+            _uiEvent.emit("📶 Switching data to $label...")
             val res = telephonyController.switchToSubId(subId)
             if (res.isSuccess) {
-                _uiEvent.emit("📶 Switched mobile data to SubId $subId.")
-                log("Switched to SubId $subId.")
+                _uiEvent.emit("📶 Mobile data switched to $label.")
+                log("Switched to $label.")
             } else {
-                _uiEvent.emit("⚠️ Failed switching to SubId $subId: ${res.stderr}")
-                log("Failed switching to SubId $subId: ${res.stderr}")
+                val err = res.stderr.ifBlank { "Exit code ${res.exitCode}" }
+                _uiEvent.emit("⚠️ SIM switch failed: $err")
+                log("SIM switch failed: $err")
             }
             _isBusy.value = false
         }

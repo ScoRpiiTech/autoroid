@@ -1,9 +1,11 @@
 package com.autoroid.app.ui
 
+import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import com.autoroid.app.ui.screens.HomeScreen
 import com.autoroid.app.ui.theme.AutoroidTheme
@@ -12,6 +14,14 @@ import rikka.shizuku.Shizuku
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
+
+    private val requestPhonePermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+                viewModel.log("READ_PHONE_STATE permission granted.")
+                viewModel.refreshAll()
+            }
+        }
 
     private val binderReceivedListener = Shizuku.OnBinderReceivedListener {
         viewModel.log("Shizuku binder received from service.")
@@ -41,6 +51,10 @@ class MainActivity : ComponentActivity() {
         Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)
         Shizuku.addBinderDeadListener(binderDeadListener)
         Shizuku.addRequestPermissionResultListener(requestPermissionResultListener)
+
+        if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+            requestPhonePermissionLauncher.launch(Manifest.permission.READ_PHONE_STATE)
+        }
 
         setContent {
             AutoroidTheme {

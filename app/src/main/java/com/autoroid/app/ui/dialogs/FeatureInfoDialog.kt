@@ -84,32 +84,34 @@ enum class FeatureHelpType(
         summary = "Instantly pauses all running accessibility services so sensitive banking and enterprise apps don't block you from logging in.",
         whyNeeded = "Modern banking apps (Chase, Revolut, finance apps) scan for running accessibility services (like password autofill, Tasker, AutoInput) and refuse to launch with security warnings.",
         steps = listOf(
-            "Tap 'ACTIVATE BANK MODE' before opening your banking or crypto app.",
-            "Autoroid snapshots your active services and unbinds them from Android system settings.",
+            "Check Status: If 'ALL CLEAR' is shown, you have 0 accessibility services and are already safe!",
+            "If services are active: Tap 'ACTIVATE BANK MODE' before opening your banking or crypto app.",
+            "Autoroid snapshots your running services and unbinds them from Android system settings.",
             "Open your banking app without any warnings or blocks.",
             "When finished, tap 'RESTORE SERVICES' (or use the Quick Settings notification tile) to instantly re-enable all your tools."
         ),
         tips = listOf(
-            "If no accessibility services are enabled on your phone, there is nothing to hide.",
-            "You can add the Bank Mode Quick Settings tile to your notification shade for 1-tap toggling."
+            "If your phone has no accessibility services installed or enabled, it displays 'ALL CLEAR' and no action is required.",
+            "Restoring services only restores the exact services that Autoroid previously paused."
         )
     ),
     SIM_SWITCHER(
         title = "Dual-SIM Data Switcher",
-        subtitle = "Direct Modem Line Switching",
+        subtitle = "Physical SIM & eSIM Modem Switching",
         icon = Icons.Default.SimCard,
         accentColor = CyberCyan,
-        summary = "Switches your default mobile data connection between SIM 1 and SIM 2 in a fraction of a second without opening Android Settings menus.",
+        summary = "Switches your default mobile data connection between physical SIM and eSIM in a fraction of a second without opening Android Settings menus.",
         whyNeeded = "Normally, switching mobile data lines requires navigating deep into Android Settings -> Network -> SIMs -> Data SIM -> Confirm. Autoroid bypasses this via direct binder calls.",
         steps = listOf(
-            "Ensure you have two active SIM cards inserted in your phone.",
-            "Tap 'SWITCH DATA SIM' (or tap either SIM card slot).",
-            "Autoroid directly issues telephony commands to switch mobile data to the alternate SIM.",
+            "Ensure you have two active lines (Physical SIM + eSIM or Dual Physical SIMs).",
+            "The card displays which line is currently 'ACTIVE DATA' with a green indicator.",
+            "Tap 'SWITCH DATA' (or tap either SIM card slot directly).",
+            "Autoroid directly issues telephony IPC commands (ISub) to switch the active mobile data line.",
             "You can also use the SIM Switcher Quick Settings tile from your notification shade."
         ),
         tips = listOf(
-            "If your phone only has 1 SIM inserted, data switching is unavailable.",
-            "If connected to Wi-Fi, your phone will stay on Wi-Fi, but the cellular standby line changes."
+            "Both Physical SIMs and eSIMs are fully supported.",
+            "If connected to Wi-Fi, your phone will stay on Wi-Fi, but the cellular data default line switches immediately in the background."
         )
     ),
     WORKFLOWS(

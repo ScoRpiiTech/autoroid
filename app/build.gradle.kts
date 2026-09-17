@@ -17,8 +17,8 @@ android {
         applicationId = "com.autoroid.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.2.4"
+        versionCode = 6
+        versionName = "1.2.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -127,9 +127,10 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
 
-    // Shizuku API
+    // Shizuku API & Hidden API bypass
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
+    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:4.3")
 
     debugImplementation(libs.androidx.ui.tooling)
 }
