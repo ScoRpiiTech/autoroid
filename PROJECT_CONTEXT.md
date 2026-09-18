@@ -86,12 +86,14 @@ Whenever a version tag (`v*`) is pushed:
    - **`BootReceiver.kt`**: Restores alarms upon device reboot (`BOOT_COMPLETED`) and updates.
    - **`SimScheduleCard.kt`**: Embedded dashboard card with master toggle, time pickers, SIM selector chips, and live status badges.
 4. **Carrier & IMS Patcher (`feature/telephony/ims`)**:
-   - **Problem:** Google limits VoLTE, VoWiFi, and 5G VoNR on Pixel devices in unsupported regions (e.g. Pakistan). Android resets carrier overrides on reboot.
+   - **Problem:** Google limits VoLTE, VoWiFi, and 5G VoNR on Pixel devices in unsupported regions (e.g. Pakistan). Android resets carrier overrides on reboot, and CVE-2025-48617 blocks shell from calling `overrideConfig`.
    - **`ImsConfig.kt`**: Feature flags mapping to `CarrierConfigManager` keys (`carrier_volte_available_bool`, `carrier_wfc_ims_available_bool`, `vonr_enabled_bool`, `carrier_supports_ss_over_ut_bool`, settings toggle visibility).
-    - **`ImsRepository.kt`**: SharedPreferences persistence (`autoroid_ims_carrier_config`) for Physical SIM and eSIM independent configs.
-    - **`BrokerInstrumentation.kt`**: Elevated instrumentation runner bypassing CVE-2025-48617 via `IActivityManager.startDelegateShellPermissionIdentity`.
-    - **`ImsController.kt`**: Elevated orchestration engine (`am instrument -w` runner via Root/Shizuku + binder fallback).
-    - **Reboot Engine:** `BootReceiver` and `AutoroidApp` automatically restore overrides on phone restart without needing Turbo IMS.
+   - **`ImsRepository.kt`**: SharedPreferences persistence (`autoroid_ims_carrier_config`) for Physical SIM and eSIM independent configs.
+   - **Compile-Time Framework Stubs (`:stub` module)**: Provides `IActivityManager`, `IInstrumentationWatcher`, `UiAutomationConnection`, and `ITelephony` stubs with 0 APK footprint.
+   - **`ImsModifier.kt`**: Privileged instrumentation runner executed via `IActivityManager.startInstrumentation(..., flags = 8, ...)`. Uses shell permission delegation (`startDelegateShellPermissionIdentity`), bypassing CVE-2025-48617 on Pixel without killing or restarting the app. Sets persistent VoLTE modem provisioning (`ProvisioningManager`, `ImsMmTelManager`, `SubscriptionManager`).
+   - **`ImsResetter.kt` & `ImsCapabilityReader.kt`**: Instrumentation runners for carrier configuration wipe, IMS reset, and real-time VoLTE/VoWiFi/VoNR capability inspection.
+   - **`ImsController.kt`**: Privileged orchestration engine coordinating Shizuku instrumentation sessions and Root fallbacks.
+   - **Reboot Engine:** `BootReceiver` and `AutoroidApp` automatically restore overrides on phone restart without needing Turbo IMS.
    - **`ImsCarrierPatcherCard.kt`**: Microchip cyber card with SIM slot switcher, live status banner, feature toggles, and 1-tap apply/reset actions.
 5. **Quick Settings Tiles (`feature/tiles`)**:
    - `BankModeTileService`: Quick Settings tile displaying real-time protected/running/clean state.
@@ -162,6 +164,7 @@ Whenever a version tag (`v*`) is pushed:
 ├── build.gradle.kts                         # Root Gradle plugins
 ├── gradle.properties                        # JVM & Android SDK flags
 ├── local.properties                         # sdk.dir path
+├── stub/                                    # Compile-only Android framework stubs (IActivityManager, IInstrumentationWatcher)
 ├── app/
 │   ├── build.gradle.kts                     # App dependencies, NDK CMake config & signingConfigs
 │   └── src/main/
@@ -186,9 +189,14 @@ Whenever a version tag (`v*`) is pushed:
 │       │   │   ├── telephony/
 │       │   │   │   ├── TelephonyController.kt     # Dual-SIM Switcher
 │       │   │   │   ├── ims/
-│       │   │   │   │   ├── ImsController.kt       # Carrier config override & boot restorer (in-process shell delegation)
+│       │   │   │   │   ├── ImsController.kt       # Carrier config override & boot restorer (privileged instrumentation engine)
 │       │   │   │   │   ├── model/
 │       │   │   │   │   │   └── ImsConfig.kt       # CarrierConfigManager flags data model
+│       │   │   │   │   ├── privileged/
+│       │   │   │   │   │   ├── ShellPermissionDelegation.kt # Shell permission delegation wrapper
+│       │   │   │   │   │   ├── ImsModifier.kt     # Privileged instrumentation runner for overrides & modem NVRAM
+│       │   │   │   │   │   ├── ImsResetter.kt     # Privileged instrumentation runner for reset
+│       │   │   │   │   │   └── ImsCapabilityReader.kt # Privileged live capability inspection
 │       │   │   │   │   ├── repository/
 │       │   │   │   │   │   └── ImsRepository.kt   # Persistent per-slot SharedPreferences storage
 │       │   │   │   │   └── ui/

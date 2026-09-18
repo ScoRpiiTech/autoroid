@@ -547,3 +547,39 @@
 
 ### 3. Version Bump
 * **`app/build.gradle.kts`**: Bumped `versionCode = 15` and `versionName = "1.2.14"`.
+
+---
+
+## [v1.2.15] - Full Turbo IMS / TensorIMS Privileged Instrumentation Architecture
+* **Date:** 2026-09-18
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
+
+### 1. Root Cause Analysis & Pixel Restriction Resolution
+* **Bypassed CVE-2025-48617:** On modern Google Pixel devices (Android 14/15/16 with the October 2025 security update), Android's `CarrierConfigLoader` blocks `Process.SHELL_UID` (UID 2000, Shizuku) from invoking `overrideConfig()` with `SecurityException: overrideConfig cannot be invoked by shell`.
+* **Resolved Process Termination:** Previous attempts invoking `am instrument` from the shell killed Autoroid because CLI tools start instrumentation with flag `0` (restarting target process). In contrast, `IActivityManager.startInstrumentation()` with `flags = 8` (`INSTR_FLAG_NO_RESTART`) launches the instrumentation runner inside the already-running app process without killing or restarting it!
+
+### 2. Compile-Time Framework Stub Module (`:stub`)
+* Introduced a dedicated `:stub` library module providing compile-only Android framework classes (`compileOnly(project(":stub"))` with 0 APK footprint):
+  - `stub/src/main/aidl/android/app/IInstrumentationWatcher.aidl`: Status and completion callbacks from `ActivityManagerService`.
+  - `stub/src/main/java/android/app/IActivityManager.java`: `startInstrumentation` and shell permission delegation methods.
+  - `stub/src/main/java/android/app/UiAutomationConnection.java`: UiAutomation connection stub.
+  - `stub/src/main/aidl/com/android/internal/telephony/ITelephony.aidl`: Telephony reset and registration checks.
+
+### 3. Privileged Instrumentation Engine
+* **`ImsModifier.kt`**:
+  - Registered in `AndroidManifest.xml` targeting `${applicationId}`.
+  - Launched dynamically via `am.startInstrumentation(..., flags = 8, ...)`.
+  - Executes `startDelegateShellPermissionIdentity(Os.getuid(), null)` (allowed because `isCallerInstrumentation() == true`).
+  - Calls `CarrierConfigManager.overrideConfig(subId, bundle, persistent = false)`.
+  - Performs persistent hardware VoLTE provisioning directly on modem NVRAM:
+    - `ProvisioningManager.setProvisioningIntValue(KEY_VOIMS_OPT_IN_STATUS, 1)`
+    - `ImsMmTelManager.setAdvancedCallingSettingEnabled(true)`
+    - `SubscriptionManager.setSubscriptionProperty("ENHANCED_4G_MODE_ENABLED", "1")`
+    - `SubscriptionManager.setSubscriptionProperty("VOIMS_OPT_IN_STATUS", "1")`
+  - Safely releases delegation via `stopDelegateShellPermissionIdentityCompat()`.
+* **`ImsResetter.kt`**: Resets carrier configurations and resets IMS via `ITelephony.resetIms()`.
+* **`ImsCapabilityReader.kt`**: Live inspection of VoLTE, VoWiFi, VoNR, VT, and 5G NSA/SA availability.
+
+### 4. Build & Distribution
+* Bumped `versionCode = 16` and `versionName = "1.2.15"`.
+* Verified with `apksigner` (APK Signature Scheme v3).

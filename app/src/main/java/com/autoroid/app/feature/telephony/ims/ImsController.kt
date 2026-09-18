@@ -1,21 +1,37 @@
 package com.autoroid.app.feature.telephony.ims
 
+import android.app.Activity
+import android.app.IActivityManager
+import android.app.IInstrumentationWatcher
+import android.app.UiAutomationConnection
+import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Bundle
 import android.os.IBinder
 import android.os.PersistableBundle
+import android.telephony.CarrierConfigManager
+import android.telephony.SubscriptionManager
 import android.util.Log
 import com.autoroid.app.core.privilege.PrivilegeLevel
 import com.autoroid.app.core.privilege.PrivilegeManager
 import com.autoroid.app.feature.telephony.TelephonyController
 import com.autoroid.app.feature.telephony.ims.model.ImsConfig
+import com.autoroid.app.feature.telephony.ims.privileged.ImsCapabilityReader
+import com.autoroid.app.feature.telephony.ims.privileged.ImsModifier
+import com.autoroid.app.feature.telephony.ims.privileged.ImsResetter
 import com.autoroid.app.feature.telephony.ims.repository.ImsRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
 import rikka.shizuku.SystemServiceHelper
@@ -35,36 +51,54 @@ class ImsController(
 
     /**
      * Applies carrier config & IMS overrides for a specific SIM slot.
-     * Uses in-process shell permission delegation via Shizuku first (bypasses CVE-2025-48617),
-     * falling back to direct Shizuku Binder IPC and Root elevated execution.
+     * Uses privileged Instrumentation with INSTR_FLAG_NO_RESTART (flag 8) via Shizuku
+     * to completely bypass Google Pixel's CVE-2025-48617 restriction without restarting the app.
      */
     suspend fun applyConfig(slotIndex: Int, subId: Int, config: ImsConfig): Result<String> = withContext(Dispatchers.IO) {
         _isApplying.value = true
         val updatedConfig = config.copy(slotIndex = slotIndex, subscriptionId = subId)
-        val bundle = updatedConfig.toCarrierConfigBundle()
 
         try {
-            // Method 1: In-process Shell Permission Delegation via Shizuku (Bypasses CVE-2025-48617 on Pixel)
-            var success = applyWithShellDelegation(subId, bundle)
+            var isSuccess = false
+            var errorMessage: String? = null
 
-            // Method 2: Direct Shizuku Binder IPC fallback (ICarrierConfigLoader)
-            if (!success) {
-                success = applyViaShizukuBinder(subId, updatedConfig)
+            // Method 1: Privileged Instrumentation via Shizuku (Exact Turbo IMS / TensorIMS bypass)
+            if (Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+                val args = Bundle().apply {
+                    putInt(ImsModifier.BUNDLE_SELECT_SIM_ID, subId)
+                    putBoolean(ImsModifier.BUNDLE_RESET, false)
+                    for ((key, value) in updatedConfig.toKeyValuePairs()) {
+                        putBoolean(key, value)
+                    }
+                }
+
+                val result = startInstrumentation(context, ImsModifier::class.java, args, receiveResult = true)
+                if (result != null) {
+                    isSuccess = result.getBoolean(ImsModifier.BUNDLE_RESULT, false)
+                    if (!isSuccess) {
+                        errorMessage = result.getString(ImsModifier.BUNDLE_RESULT_MSG)
+                    }
+                } else {
+                    errorMessage = "Instrumentation returned no response. Ensure Shizuku is running."
+                }
             }
 
-            // Method 3: Root permission grant & override
-            if (!success && privilegeManager.currentLevel.value == PrivilegeLevel.ROOT) {
-                success = applyViaRoot(subId, bundle)
+            // Method 2: Root fallback (UID 0)
+            if (!isSuccess && privilegeManager.currentLevel.value == PrivilegeLevel.ROOT) {
+                val rootRes = applyViaRoot(subId, updatedConfig.toCarrierConfigBundle())
+                if (rootRes) {
+                    isSuccess = true
+                }
             }
 
-            if (success) {
+            if (isSuccess) {
                 repository.saveConfig(updatedConfig.copy(isApplied = true, lastAppliedTimestamp = System.currentTimeMillis()))
                 val msg = "IMS overrides successfully applied for SIM ${slotIndex + 1} (SubId $subId)"
                 _lastResult.value = msg
                 Log.i(TAG, msg)
                 Result.success(msg)
             } else {
-                val err = "Failed to apply IMS overrides. Ensure Shizuku or Root is granted."
+                val err = errorMessage ?: "Failed to apply IMS overrides. Ensure Shizuku or Root is granted."
                 _lastResult.value = err
                 Log.w(TAG, err)
                 Result.failure(Exception(err))
@@ -128,17 +162,20 @@ class ImsController(
     suspend fun clearConfig(slotIndex: Int, subId: Int): Result<String> = withContext(Dispatchers.IO) {
         _isApplying.value = true
         try {
-            // 1. Try shell delegation clear
-            var success = clearWithShellDelegation(subId)
+            var isSuccess = false
 
-            // 2. Try Shizuku binder empty override fallback
-            if (!success) {
-                success = clearViaShizukuBinder(subId)
+            if (Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+                val args = Bundle().apply {
+                    putInt(ImsResetter.BUNDLE_SELECT_SIM_ID, subId)
+                }
+                val result = startInstrumentation(context, ImsResetter::class.java, args, receiveResult = true)
+                if (result != null) {
+                    isSuccess = result.getBoolean(ImsResetter.BUNDLE_RESULT, false)
+                }
             }
 
-            // 3. Try Root clear
-            if (!success && privilegeManager.currentLevel.value == PrivilegeLevel.ROOT) {
-                success = clearViaRoot(subId)
+            if (!isSuccess && privilegeManager.currentLevel.value == PrivilegeLevel.ROOT) {
+                isSuccess = clearViaRoot(subId)
             }
 
             repository.markApplied(slotIndex, false)
@@ -155,12 +192,25 @@ class ImsController(
     }
 
     /**
+     * Queries live IMS registration, VoLTE, VoWiFi, and VoNR status for a subscription.
+     */
+    suspend fun queryCapabilities(subId: Int): Bundle? = withContext(Dispatchers.IO) {
+        if (!Shizuku.pingBinder() || Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
+            return@withContext null
+        }
+        val args = Bundle().apply {
+            putInt(ImsCapabilityReader.BUNDLE_SELECT_SIM_ID, subId)
+        }
+        startInstrumentation(context, ImsCapabilityReader::class.java, args, receiveResult = true)
+    }
+
+    /**
      * Invoked during device boot (`BOOT_COMPLETED`) or application startup.
      * Restores all persisted IMS configurations automatically across reboots.
      */
     suspend fun onBoot() = withContext(Dispatchers.IO) {
         try {
-            delay(2500) // Brief pause to allow telephony and privilege daemons to stabilize
+            delay(2500)
             privilegeManager.refresh()
             val currentPrivilege = privilegeManager.currentLevel.value
             if (currentPrivilege == PrivilegeLevel.NONE) {
@@ -183,157 +233,106 @@ class ImsController(
     }
 
     /**
-     * In-process shell permission delegation via Shizuku IPC.
-     * Adopts shell permissions on our UID, calls CarrierConfigManager.overrideConfig(), and releases delegation.
+     * Launches a privileged Instrumentation component via Shizuku's IActivityManager IPC.
+     * Uses INSTR_FLAG_NO_RESTART (flag 8) to preserve the running app process.
      */
-    private fun applyWithShellDelegation(subId: Int, bundle: PersistableBundle): Boolean {
-        if (!Shizuku.pingBinder() || Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
-            return false
+    private suspend fun startInstrumentation(
+        context: Context,
+        cls: Class<*>,
+        args: Bundle?,
+        receiveResult: Boolean
+    ): Bundle? = instrumentationMutex.withLock {
+        val previous = activeInstrumentation
+        if (previous != null && !previous.isCompleted) {
+            withTimeoutOrNull(INSTRUMENTATION_TIMEOUT_MS) {
+                previous.await()
+            }
         }
 
-        var amInstance: Any? = null
-        return try {
+        val deferredResult = CompletableDeferred<Bundle?>()
+        var watcher: IInstrumentationWatcher.Stub? = null
+
+        if (receiveResult) {
+            watcher = object : IInstrumentationWatcher.Stub() {
+                override fun instrumentationStatus(
+                    name: ComponentName?,
+                    resultCode: Int,
+                    results: Bundle?
+                ) {}
+
+                override fun instrumentationFinished(
+                    name: ComponentName?,
+                    resultCode: Int,
+                    results: Bundle?
+                ) {
+                    if (resultCode != Activity.RESULT_OK) {
+                        Log.w(TAG, "Instrumentation finished with resultCode=$resultCode for $name")
+                        deferredResult.complete(null)
+                    } else {
+                        deferredResult.complete(results)
+                    }
+                }
+            }
+        }
+
+        try {
+            if (!Shizuku.pingBinder()) {
+                Log.w(TAG, "Shizuku binder is unavailable")
+                return@withLock null
+            }
+            if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
+                Log.w(TAG, "Shizuku permission not granted")
+                return@withLock null
+            }
+
             TelephonyController.ensureHiddenApiExempted()
-            val amBinder = SystemServiceHelper.getSystemService(Context.ACTIVITY_SERVICE) ?: return false
-            val wrappedAm = ShizukuBinderWrapper(amBinder)
+            val binder = SystemServiceHelper.getSystemService(Context.ACTIVITY_SERVICE)
+                ?: error("Activity service unavailable")
             val stubClass = Class.forName("android.app.IActivityManager\$Stub")
             val asInterface = stubClass.getMethod("asInterface", IBinder::class.java)
-            amInstance = asInterface.invoke(null, wrappedAm)
+            val am = asInterface.invoke(null, ShizukuBinderWrapper(binder)) as IActivityManager
 
-            val startDelegate = amInstance.javaClass.getMethod(
-                "startDelegateShellPermissionIdentity",
-                Int::class.javaPrimitiveType,
-                Array<String>::class.java
+            val name = ComponentName(context, cls)
+            // INSTR_FLAG_NO_RESTART (1 << 3 = 8) keeps the running process alive!
+            val flags = 8
+            val connection = UiAutomationConnection()
+
+            Log.d(TAG, "Calling am.startInstrumentation for $name with flags=$flags")
+            val started = am.startInstrumentation(
+                name,
+                null,
+                flags,
+                args,
+                watcher,
+                connection,
+                0,
+                null
             )
-            startDelegate.invoke(amInstance, android.os.Process.myUid(), null)
-            Log.i(TAG, "Shell permission identity delegated to UID ${android.os.Process.myUid()}")
 
-            val configManager = context.getSystemService(android.telephony.CarrierConfigManager::class.java)
-            val overrideMethod = configManager.javaClass.getMethod(
-                "overrideConfig",
-                Int::class.javaPrimitiveType,
-                PersistableBundle::class.java,
-                Boolean::class.javaPrimitiveType
-            )
-            overrideMethod.invoke(configManager, subId, bundle, false)
-            Log.i(TAG, "CarrierConfigManager.overrideConfig succeeded with shell delegation for subId $subId")
-            true
-        } catch (e: Throwable) {
-            Log.w(TAG, "applyWithShellDelegation note: ${e.message}")
-            false
-        } finally {
-            if (amInstance != null) {
-                try {
-                    val stopDelegate = amInstance.javaClass.getMethod("stopDelegateShellPermissionIdentity")
-                    stopDelegate.invoke(amInstance)
-                } catch (_: Throwable) {}
-            }
-        }
-    }
-
-    private fun clearWithShellDelegation(subId: Int): Boolean {
-        if (!Shizuku.pingBinder() || Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
-            return false
-        }
-
-        var amInstance: Any? = null
-        return try {
-            TelephonyController.ensureHiddenApiExempted()
-            val amBinder = SystemServiceHelper.getSystemService(Context.ACTIVITY_SERVICE) ?: return false
-            val wrappedAm = ShizukuBinderWrapper(amBinder)
-            val stubClass = Class.forName("android.app.IActivityManager\$Stub")
-            val asInterface = stubClass.getMethod("asInterface", IBinder::class.java)
-            amInstance = asInterface.invoke(null, wrappedAm)
-
-            val startDelegate = amInstance.javaClass.getMethod(
-                "startDelegateShellPermissionIdentity",
-                Int::class.javaPrimitiveType,
-                Array<String>::class.java
-            )
-            startDelegate.invoke(amInstance, android.os.Process.myUid(), null)
-
-            val configManager = context.getSystemService(android.telephony.CarrierConfigManager::class.java)
-            val overrideMethod = configManager.javaClass.getMethod(
-                "overrideConfig",
-                Int::class.javaPrimitiveType,
-                PersistableBundle::class.java,
-                Boolean::class.javaPrimitiveType
-            )
-            overrideMethod.invoke(configManager, subId, null, false)
-            Log.i(TAG, "CarrierConfigManager.overrideConfig cleared for subId $subId")
-            true
-        } catch (e: Throwable) {
-            Log.w(TAG, "clearWithShellDelegation note: ${e.message}")
-            false
-        } finally {
-            if (amInstance != null) {
-                try {
-                    val stopDelegate = amInstance.javaClass.getMethod("stopDelegateShellPermissionIdentity")
-                    stopDelegate.invoke(amInstance)
-                } catch (_: Throwable) {}
-            }
-        }
-    }
-
-    private fun applyViaShizukuBinder(subId: Int, config: ImsConfig): Boolean {
-        return try {
-            if (!Shizuku.pingBinder() || Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
-                return false
+            if (!started) {
+                Log.e(TAG, "am.startInstrumentation rejected for $name")
+                return@withLock null
             }
 
-            TelephonyController.ensureHiddenApiExempted()
-            val binder = SystemServiceHelper.getSystemService("carrier_config") ?: return false
-            val wrapped = ShizukuBinderWrapper(binder)
-            val stubClass = Class.forName("com.android.internal.telephony.ICarrierConfigLoader\$Stub")
-            val loader = stubClass.getMethod("asInterface", IBinder::class.java).invoke(null, wrapped) ?: return false
-
-            val method = loader.javaClass.getMethod(
-                "overrideConfig",
-                Int::class.javaPrimitiveType,
-                PersistableBundle::class.java,
-                Boolean::class.javaPrimitiveType
-            )
-
-            val bundle = config.toCarrierConfigBundle()
-            method.invoke(loader, subId, bundle, false)
-            Log.i(TAG, "applyViaShizukuBinder succeeded for subId $subId")
-            true
-        } catch (e: Throwable) {
-            Log.w(TAG, "applyViaShizukuBinder note: ${e.message}")
-            false
-        }
-    }
-
-    private fun clearViaShizukuBinder(subId: Int): Boolean {
-        return try {
-            if (!Shizuku.pingBinder() || Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
-                return false
+            if (receiveResult) {
+                activeInstrumentation = deferredResult
+                return@withLock withTimeoutOrNull(INSTRUMENTATION_TIMEOUT_MS) {
+                    deferredResult.await()
+                }
             }
-            TelephonyController.ensureHiddenApiExempted()
-            val binder = SystemServiceHelper.getSystemService("carrier_config") ?: return false
-            val wrapped = ShizukuBinderWrapper(binder)
-            val stubClass = Class.forName("com.android.internal.telephony.ICarrierConfigLoader\$Stub")
-            val loader = stubClass.getMethod("asInterface", IBinder::class.java).invoke(null, wrapped) ?: return false
-
-            val method = loader.javaClass.getMethod(
-                "overrideConfig",
-                Int::class.javaPrimitiveType,
-                PersistableBundle::class.java,
-                Boolean::class.javaPrimitiveType
-            )
-            method.invoke(loader, subId, null, false)
-            Log.i(TAG, "clearViaShizukuBinder succeeded for subId $subId")
-            true
-        } catch (e: Throwable) {
-            Log.w(TAG, "clearViaShizukuBinder note: ${e.message}")
-            false
+            return@withLock null
+        } catch (e: CancellationException) {
+            throw e
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed to start instrumentation", t)
+            return@withLock null
         }
     }
 
     private suspend fun applyViaRoot(subId: Int, bundle: PersistableBundle): Boolean {
         return try {
             privilegeManager.executeElevated("pm grant com.autoroid.app android.permission.MODIFY_PHONE_STATE")
-            val configManager = context.getSystemService(android.telephony.CarrierConfigManager::class.java)
+            val configManager = context.getSystemService(CarrierConfigManager::class.java)
             val overrideMethod = configManager.javaClass.getMethod(
                 "overrideConfig",
                 Int::class.javaPrimitiveType,
@@ -352,7 +351,7 @@ class ImsController(
     private suspend fun clearViaRoot(subId: Int): Boolean {
         return try {
             privilegeManager.executeElevated("pm grant com.autoroid.app android.permission.MODIFY_PHONE_STATE")
-            val configManager = context.getSystemService(android.telephony.CarrierConfigManager::class.java)
+            val configManager = context.getSystemService(CarrierConfigManager::class.java)
             val overrideMethod = configManager.javaClass.getMethod(
                 "overrideConfig",
                 Int::class.javaPrimitiveType,
@@ -370,5 +369,8 @@ class ImsController(
 
     companion object {
         private const val TAG = "ImsController"
+        private const val INSTRUMENTATION_TIMEOUT_MS = 15_000L
+        private val instrumentationMutex = Mutex()
+        private var activeInstrumentation: CompletableDeferred<Bundle?>? = null
     }
 }

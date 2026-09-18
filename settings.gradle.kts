@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Autoroid"
 include(":app")
+include(":stub")

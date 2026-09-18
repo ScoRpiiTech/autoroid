@@ -99,4 +99,19 @@
 
     </application>
 
+    <instrumentation
+        android:name=".feature.telephony.ims.privileged.ImsModifier"
+        android:label="Autoroid IMS Modifier"
+        android:targetPackage="${applicationId}" />
+
+    <instrumentation
+        android:name=".feature.telephony.ims.privileged.ImsResetter"
+        android:label="Autoroid IMS Resetter"
+        android:targetPackage="${applicationId}" />
+
+    <instrumentation
+        android:name=".feature.telephony.ims.privileged.ImsCapabilityReader"
+        android:label="Autoroid IMS Capability Reader"
+        android:targetPackage="${applicationId}" />
+
 </manifest>

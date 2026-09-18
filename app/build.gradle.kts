@@ -17,8 +17,8 @@ android {
         applicationId = "com.autoroid.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 15
-        versionName = "1.2.14"
+        versionCode = 16
+        versionName = "1.2.15"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -131,6 +131,7 @@ dependencies {
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
     implementation("org.lsposed.hiddenapibypass:hiddenapibypass:4.3")
+    compileOnly(project(":stub"))
 
     debugImplementation(libs.androidx.ui.tooling)
 }
