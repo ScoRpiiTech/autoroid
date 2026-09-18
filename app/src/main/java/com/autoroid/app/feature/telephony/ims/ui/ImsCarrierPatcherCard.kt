@@ -5,18 +5,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.HelpOutline
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.SettingsCell
-import androidx.compose.material.icons.filled.SettingsSuggest
-import androidx.compose.material.icons.filled.SimCard
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,7 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.border
 import androidx.compose.ui.unit.sp
 import com.autoroid.app.core.privilege.PrivilegeLevel
 import com.autoroid.app.feature.telephony.SimSlotInfo
@@ -48,17 +41,16 @@ fun ImsCarrierPatcherCard(
     onResetConfig: (slotIndex: Int, subId: Int) -> Unit,
     onHelpClick: () -> Unit = {}
 ) {
-    // Current selected SIM slot tab (defaults to first available or 0)
     var selectedSlotIndex by remember { mutableStateOf(0) }
+    var showAdvancedIcons by remember { mutableStateOf(false) }
+    var showIdentityOverrides by remember { mutableStateOf(false) }
 
-    // Ensure selectedSlotIndex is valid if slots change
     val activeSlot = simSlots.firstOrNull { it.slotIndex == selectedSlotIndex }
         ?: simSlots.firstOrNull()
 
     val currentSlotIndex = activeSlot?.slotIndex ?: selectedSlotIndex
     val currentSubId = activeSlot?.subscriptionId ?: (currentSlotIndex + 1)
 
-    // Current config for this slot
     val currentConfig = imsConfigs[currentSlotIndex] ?: remember(currentSlotIndex, currentSubId) {
         ImsConfig(slotIndex = currentSlotIndex, subscriptionId = currentSubId)
     }
@@ -109,7 +101,7 @@ fun ImsCarrierPatcherCard(
                             letterSpacing = 1.sp
                         )
                         Text(
-                            text = "Pixel VoLTE, VoWiFi & 5G VoNR Enabler",
+                            text = "Pixel VoLTE, VoWiFi, VoNR & 5G Turbo Engine",
                             fontSize = 11.sp,
                             color = TextSecondary
                         )
@@ -183,7 +175,6 @@ fun ImsCarrierPatcherCard(
                     for (slot in simSlots) {
                         val isSelected = (slot.slotIndex == currentSlotIndex)
                         val tabBg = if (isSelected) CyberCyan.copy(alpha = 0.18f) else Color.Transparent
-                        val tabBorder = if (isSelected) CyberCyan else Color.Transparent
                         val textCol = if (isSelected) CyberCyan else TextSecondary
 
                         Box(
@@ -225,7 +216,6 @@ fun ImsCarrierPatcherCard(
             // Live Override Status Banner
             val isApplied = currentConfig.isApplied
             val statusBg = if (isApplied) NeonGreen.copy(alpha = 0.12f) else AmberWarn.copy(alpha = 0.10f)
-            val statusBorder = if (isApplied) NeonGreen.copy(alpha = 0.4f) else AmberWarn.copy(alpha = 0.35f)
             val statusColor = if (isApplied) NeonGreen else AmberWarn
 
             Box(
@@ -292,80 +282,261 @@ fun ImsCarrierPatcherCard(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Feature Toggles Section
+            // SECTION 1: CORE IMS CALLING FEATURES
             Text(
-                text = "CARRIER CONFIGURATION FLAGS",
+                text = "CORE CALLING & IMS FEATURES",
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
                 fontSize = 11.sp,
-                color = TextSecondary,
+                color = CyberCyan,
                 letterSpacing = 0.5.sp
             )
+            Spacer(modifier = Modifier.height(6.dp))
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 1. VoLTE Toggle
+            // 1. VoLTE
             ImsToggleRow(
                 title = "VoLTE (Voice over 4G LTE)",
                 subtitle = "Force-enables HD Voice calling on unsupported 4G networks",
                 checked = currentConfig.volteEnabled,
-                onCheckedChange = { checked ->
-                    val updated = currentConfig.copy(volteEnabled = checked)
-                    onSaveConfig(updated)
-                }
+                onCheckedChange = { onSaveConfig(currentConfig.copy(volteEnabled = it)) }
             )
-
             HorizontalDivider(color = CardBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
 
-            // 2. VoWiFi Toggle
+            // 2. VoWiFi
             ImsToggleRow(
                 title = "Wi-Fi Calling (VoWiFi / WFC)",
                 subtitle = "Enables cellular voice calls through local Wi-Fi networks",
                 checked = currentConfig.vowifiEnabled,
-                onCheckedChange = { checked ->
-                    val updated = currentConfig.copy(vowifiEnabled = checked)
-                    onSaveConfig(updated)
-                }
+                onCheckedChange = { onSaveConfig(currentConfig.copy(vowifiEnabled = it)) }
             )
-
             HorizontalDivider(color = CardBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
 
-            // 3. 5G VoNR Toggle
+            // 3. VoWiFi Roaming
+            ImsToggleRow(
+                title = "VoWiFi While Roaming",
+                subtitle = "Maintains Wi-Fi Calling availability when travelling internationally",
+                checked = currentConfig.vowifiRoamingEnabled,
+                onCheckedChange = { onSaveConfig(currentConfig.copy(vowifiRoamingEnabled = it)) }
+            )
+            HorizontalDivider(color = CardBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
+
+            // 4. 5G VoNR
             ImsToggleRow(
                 title = "5G Voice Calling (VoNR)",
                 subtitle = "Keeps voice calls on pure 5G SA without EPS fallback to 4G",
                 checked = currentConfig.vonrEnabled,
-                onCheckedChange = { checked ->
-                    val updated = currentConfig.copy(vonrEnabled = checked)
-                    onSaveConfig(updated)
-                }
+                onCheckedChange = { onSaveConfig(currentConfig.copy(vonrEnabled = it)) }
             )
-
             HorizontalDivider(color = CardBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
 
-            // 4. Ut Interface Toggle
+            // 5. Video Telephony (VT)
+            ImsToggleRow(
+                title = "Video Calling (VT Telephony)",
+                subtitle = "Enables carrier-grade native video calling in Phone app dialer",
+                checked = currentConfig.vtEnabled,
+                onCheckedChange = { onSaveConfig(currentConfig.copy(vtEnabled = it)) }
+            )
+            HorizontalDivider(color = CardBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
+
+            // 6. Cross-SIM Calling
+            ImsToggleRow(
+                title = "Cross-SIM Backup Calling",
+                subtitle = "Routes Wi-Fi Calling over secondary SIM's cellular data when out of signal",
+                checked = currentConfig.crossSimEnabled,
+                onCheckedChange = { onSaveConfig(currentConfig.copy(crossSimEnabled = it)) }
+            )
+            HorizontalDivider(color = CardBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
+
+            // 7. Ut Interface
             ImsToggleRow(
                 title = "Supplementary Services (Ut Interface)",
                 subtitle = "Enables Call Forwarding, Call Waiting, and USSD over IMS",
                 checked = currentConfig.utInterfaceEnabled,
-                onCheckedChange = { checked ->
-                    val updated = currentConfig.copy(utInterfaceEnabled = checked)
-                    onSaveConfig(updated)
-                }
+                onCheckedChange = { onSaveConfig(currentConfig.copy(utInterfaceEnabled = it)) }
             )
 
-            HorizontalDivider(color = CardBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // 5. Settings Visibility Toggle
-            ImsToggleRow(
-                title = "Android Settings Toggle Visibility",
-                subtitle = "Makes VoLTE and Wi-Fi Calling switches visible in System Settings",
-                checked = currentConfig.settingsVisibilityEnabled,
-                onCheckedChange = { checked ->
-                    val updated = currentConfig.copy(settingsVisibilityEnabled = checked)
-                    onSaveConfig(updated)
+            // SECTION 2: ADVANCED 5G & STATUS BAR ICONS (EXPANDABLE)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF131B26))
+                    .clickable { showAdvancedIcons = !showAdvancedIcons }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.SignalCellularAlt,
+                        contentDescription = null,
+                        tint = NeonGreen,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "ADVANCED 5G & STATUS BAR ICONS",
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        color = NeonGreen
+                    )
                 }
-            )
+                Icon(
+                    imageVector = if (showAdvancedIcons) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    tint = TextSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            AnimatedVisibility(visible = showAdvancedIcons) {
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    // 5G NR Support
+                    ImsToggleRow(
+                        title = "5G NR SA/NSA Modem Announcement",
+                        subtitle = "Forces modem to announce both SA & NSA 5G availability to network",
+                        checked = currentConfig.fiveGnrEnabled,
+                        onCheckedChange = { onSaveConfig(currentConfig.copy(fiveGnrEnabled = it)) }
+                    )
+                    HorizontalDivider(color = CardBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
+
+                    // 5G+ Icon
+                    ImsToggleRow(
+                        title = "5G+ Ultra Wideband Icon Override",
+                        subtitle = "Forces 5G+ icon when connected to high-bandwidth NR carriers",
+                        checked = currentConfig.fiveGPlusIconEnabled,
+                        onCheckedChange = { onSaveConfig(currentConfig.copy(fiveGPlusIconEnabled = it)) }
+                    )
+                    HorizontalDivider(color = CardBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
+
+                    // 5G Thresholds
+                    ImsToggleRow(
+                        title = "5G NR Signal Threshold Calibration",
+                        subtitle = "Adjusts signal boundaries ([-128, -98 dBm]) for aggressive 5G latching",
+                        checked = currentConfig.fiveGThresholdsEnabled,
+                        onCheckedChange = { onSaveConfig(currentConfig.copy(fiveGThresholdsEnabled = it)) }
+                    )
+                    HorizontalDivider(color = CardBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
+
+                    // Enhanced 4G LTE
+                    ImsToggleRow(
+                        title = "Enhanced 4G LTE Controls",
+                        subtitle = "Configures advanced 4G calling & default icon visibility",
+                        checked = currentConfig.enhanced4gLteEnabled,
+                        onCheckedChange = { onSaveConfig(currentConfig.copy(enhanced4gLteEnabled = it)) }
+                    )
+                    HorizontalDivider(color = CardBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
+
+                    // Show 4G for LTE
+                    ImsToggleRow(
+                        title = "Display '4G' Instead of 'LTE'",
+                        subtitle = "Changes the status bar network indicator text from LTE to 4G",
+                        checked = currentConfig.show4gForLte,
+                        onCheckedChange = { onSaveConfig(currentConfig.copy(show4gForLte = it)) }
+                    )
+                    HorizontalDivider(color = CardBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
+
+                    // Hide LTE+
+                    ImsToggleRow(
+                        title = "Hide 'LTE+' Aggregation Indicator",
+                        subtitle = "Prevents LTE+ badge from cluttering the status bar during CA",
+                        checked = currentConfig.hideLtePlusIcon,
+                        onCheckedChange = { onSaveConfig(currentConfig.copy(hideLtePlusIcon = it)) }
+                    )
+                    HorizontalDivider(color = CardBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
+
+                    // Settings Visibility
+                    ImsToggleRow(
+                        title = "Android Settings Toggle Visibility",
+                        subtitle = "Makes VoLTE and Wi-Fi Calling switches visible in System Settings",
+                        checked = currentConfig.settingsVisibilityEnabled,
+                        onCheckedChange = { onSaveConfig(currentConfig.copy(settingsVisibilityEnabled = it)) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // SECTION 3: CARRIER & SIP IDENTITY OVERRIDES (EXPANDABLE)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF131B26))
+                    .clickable { showIdentityOverrides = !showIdentityOverrides }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Badge,
+                        contentDescription = null,
+                        tint = CyberCyan,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "CARRIER NAME & SIP USER-AGENT",
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        color = CyberCyan
+                    )
+                }
+                Icon(
+                    imageVector = if (showIdentityOverrides) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    tint = TextSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            AnimatedVisibility(visible = showIdentityOverrides) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedTextField(
+                        value = currentConfig.carrierName,
+                        onValueChange = { onSaveConfig(currentConfig.copy(carrierName = it)) },
+                        label = { Text("Custom Carrier Name", fontSize = 11.sp) },
+                        placeholder = { Text("e.g. CyberTel, Google Fi", fontSize = 11.sp, color = TextSecondary) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = CyberCyan,
+                            unfocusedBorderColor = CardBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
+                            focusedLabelColor = CyberCyan,
+                            unfocusedLabelColor = TextSecondary
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = currentConfig.imsUserAgent,
+                        onValueChange = { onSaveConfig(currentConfig.copy(imsUserAgent = it)) },
+                        label = { Text("IMS SIP User-Agent Override", fontSize = 11.sp) },
+                        placeholder = { Text("e.g. Pixel 9 Pro/AP2A... IMS", fontSize = 11.sp, color = TextSecondary) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = CyberCyan,
+                            unfocusedBorderColor = CardBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
+                            focusedLabelColor = CyberCyan,
+                            unfocusedLabelColor = TextSecondary
+                        )
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -465,9 +636,9 @@ fun ImsCarrierPatcherCard(
                 if (!lastResult.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(10.dp))
                     val isSuccess = !lastResult.contains("Failed", ignoreCase = true) &&
-                                    !lastResult.contains("Error", ignoreCase = true) &&
-                                    !lastResult.contains("not granted", ignoreCase = true) &&
-                                    !lastResult.contains("not running", ignoreCase = true)
+                            !lastResult.contains("Error", ignoreCase = true) &&
+                            !lastResult.contains("not granted", ignoreCase = true) &&
+                            !lastResult.contains("not running", ignoreCase = true)
                     val resultBg = if (isSuccess) NeonGreen.copy(alpha = 0.10f) else AmberWarn.copy(alpha = 0.12f)
                     val resultBorder = if (isSuccess) NeonGreen.copy(alpha = 0.35f) else AmberWarn.copy(alpha = 0.4f)
                     val resultColor = if (isSuccess) NeonGreen else AmberWarn

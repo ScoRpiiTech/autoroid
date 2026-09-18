@@ -87,8 +87,12 @@ Whenever a version tag (`v*`) is pushed:
    - **`SimScheduleCard.kt`**: Embedded dashboard card with master toggle, time pickers, SIM selector chips, and live status badges.
 4. **Carrier & IMS Patcher (`feature/telephony/ims`)**:
    - **Problem:** Google limits VoLTE, VoWiFi, and 5G VoNR on Pixel devices in unsupported regions (e.g. Pakistan). Android resets carrier overrides on reboot, and CVE-2025-48617 blocks shell from calling `overrideConfig`.
-   - **`ImsConfig.kt`**: Feature flags mapping to `CarrierConfigManager` keys (`carrier_volte_available_bool`, `carrier_wfc_ims_available_bool`, `vonr_enabled_bool`, `carrier_supports_ss_over_ut_bool`, settings toggle visibility).
-   - **`ImsRepository.kt`**: SharedPreferences persistence (`autoroid_ims_carrier_config`) for Physical SIM and eSIM independent configs.
+   - **100% TensorIMS / Turbo IMS Feature Coverage**:
+     - *Core Calling & IMS:* VoLTE (`carrier_volte_available_bool`), VoWiFi (`carrier_wfc_ims_available_bool`), VoWiFi Roaming (`carrier_wfc_supports_wifi_only_bool`), VoNR 5G Voice (`vonr_enabled_bool`), VT Video Telephony (`carrier_vt_available_bool`), Supplementary Services UT/USSD (`carrier_supports_ss_over_ut_bool`), and Cross-SIM Calling (`carrier_cross_sim_calling_available_bool`).
+     - *Advanced 5G & Status Bar Icons:* Standalone/Non-Standalone modem announcement (`carrier_nr_availabilities_int_array = [1, 2]`), 5G+ Ultra Wideband status bar icon (`FiveGPlusConfig`), 5G signal calibration (`5g_nr_ssrsrp_thresholds_int_array = [-128, -98]`), Enhanced 4G LTE controls, "4G" instead of "LTE" indicator, and "LTE+" CA icon suppression.
+     - *Identity & Signaling Overrides:* Custom Carrier Name (`carrier_name_string`) and IMS SIP User-Agent string (`carrier_ims_user_agent_string`).
+   - **`ImsConfig.kt`**: Multi-type configuration model generating standard CarrierConfig bundles and custom multi-type bundles.
+   - **`ImsRepository.kt`**: SharedPreferences JSON persistence (`autoroid_ims_carrier_config`) for Physical SIM and eSIM independent configs.
    - **Compile-Time Framework Stubs (`:stub` module)**: Provides `ServiceManager`, `IActivityManager`, `IInstrumentationWatcher`, `UiAutomationConnection`, and `ITelephony` stubs with 0 APK footprint.
    - **Two-Tier Privileged Instrumentation**:
      - Primary: `ImsModifier.kt` launches via `IActivityManager.startInstrumentation(..., flags = 8)` using `ServiceManager.getService("activity")` wrapped in `ShizukuBinderWrapper`. Delegates shell identity (`startDelegateShellPermissionIdentity`), overrides carrier configs, and sets persistent modem NVRAM provisioning.
@@ -96,7 +100,7 @@ Whenever a version tag (`v*`) is pushed:
    - **`ImsResetter.kt` & `ImsCapabilityReader.kt`**: Instrumentation runners for carrier configuration wipe, IMS reset, and real-time VoLTE/VoWiFi/VoNR capability inspection.
    - **`ImsController.kt`**: Privileged orchestration engine coordinating Shizuku instrumentation sessions and Root fallbacks.
    - **Reboot Engine:** `BootReceiver` and `AutoroidApp` automatically restore overrides on phone restart without needing Turbo IMS.
-   - **`ImsCarrierPatcherCard.kt`**: Microchip cyber card with SIM slot switcher, live status banner, live Shizuku authorization warning, feature toggles, and 1-tap apply/reset actions.
+   - **`ImsCarrierPatcherCard.kt`**: Microchip cyber card with SIM slot switcher, live status banner, live Shizuku authorization warning, organized expandable feature sections, and 1-tap apply/reset actions.
 5. **Quick Settings Tiles (`feature/tiles`)**:
    - `BankModeTileService`: Quick Settings tile displaying real-time protected/running/clean state.
    - `SimSwitchTileService`: Quick Settings tile showing active SIM type and carrier name for 1-tap switching.

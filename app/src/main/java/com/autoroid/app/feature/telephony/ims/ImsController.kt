@@ -119,12 +119,9 @@ class ImsController(
         subId: Int,
         config: ImsConfig
     ): Pair<Boolean, String?> {
-        val primaryArgs = Bundle().apply {
+        val primaryArgs = config.toBundle().apply {
             putInt(ImsModifier.BUNDLE_SELECT_SIM_ID, subId)
             putBoolean(ImsModifier.BUNDLE_RESET, false)
-            for ((key, value) in config.toKeyValuePairs()) {
-                putBoolean(key, value)
-            }
         }
 
         Log.i(TAG, "overrideImsConfig: attempting via ImsModifier for subId $subId")
@@ -153,12 +150,9 @@ class ImsController(
             return Pair(false, primaryError)
         }
 
-        val brokerArgs = Bundle().apply {
+        val brokerArgs = config.toBundle().apply {
             putInt(ImsModifier.BUNDLE_SELECT_SIM_ID, subId)
             putBoolean(ImsModifier.BUNDLE_RESET, false)
-            for ((key, value) in config.toKeyValuePairs()) {
-                putBoolean(key, value)
-            }
         }
 
         val brokerResult = startInstrumentation(context, BrokerInstrumentation::class.java, brokerArgs, receiveResult = true)

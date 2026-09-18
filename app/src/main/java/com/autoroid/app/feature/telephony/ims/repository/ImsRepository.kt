@@ -67,10 +67,20 @@ class ImsRepository(context: Context) {
             put("subId", config.subscriptionId)
             put("volte", config.volteEnabled)
             put("vowifi", config.vowifiEnabled)
+            put("vowifiRoaming", config.vowifiRoamingEnabled)
             put("vonr", config.vonrEnabled)
-            put("ut", config.utInterfaceEnabled)
-            put("settingsVisibility", config.settingsVisibilityEnabled)
             put("vt", config.vtEnabled)
+            put("ut", config.utInterfaceEnabled)
+            put("crossSim", config.crossSimEnabled)
+            put("fiveGnr", config.fiveGnrEnabled)
+            put("fiveGThresholds", config.fiveGThresholdsEnabled)
+            put("fiveGPlusIcon", config.fiveGPlusIconEnabled)
+            put("enhanced4gLte", config.enhanced4gLteEnabled)
+            put("hideLtePlusIcon", config.hideLtePlusIcon)
+            put("show4gForLte", config.show4gForLte)
+            put("carrierName", config.carrierName)
+            put("imsUserAgent", config.imsUserAgent)
+            put("settingsVisibility", config.settingsVisibilityEnabled)
             put("isApplied", config.isApplied)
             put("timestamp", config.lastAppliedTimestamp)
         }.toString()
@@ -84,10 +94,20 @@ class ImsRepository(context: Context) {
                 subscriptionId = obj.optInt("subId", -1),
                 volteEnabled = obj.optBoolean("volte", true),
                 vowifiEnabled = obj.optBoolean("vowifi", true),
+                vowifiRoamingEnabled = obj.optBoolean("vowifiRoaming", false),
                 vonrEnabled = obj.optBoolean("vonr", true),
-                utInterfaceEnabled = obj.optBoolean("ut", true),
-                settingsVisibilityEnabled = obj.optBoolean("settingsVisibility", true),
                 vtEnabled = obj.optBoolean("vt", false),
+                utInterfaceEnabled = obj.optBoolean("ut", true),
+                crossSimEnabled = obj.optBoolean("crossSim", true),
+                fiveGnrEnabled = obj.optBoolean("fiveGnr", true),
+                fiveGThresholdsEnabled = obj.optBoolean("fiveGThresholds", true),
+                fiveGPlusIconEnabled = obj.optBoolean("fiveGPlusIcon", true),
+                enhanced4gLteEnabled = obj.optBoolean("enhanced4gLte", true),
+                hideLtePlusIcon = obj.optBoolean("hideLtePlusIcon", false),
+                show4gForLte = obj.optBoolean("show4gForLte", false),
+                carrierName = obj.optString("carrierName", ""),
+                imsUserAgent = obj.optString("imsUserAgent", ""),
+                settingsVisibilityEnabled = obj.optBoolean("settingsVisibility", true),
                 isApplied = obj.optBoolean("isApplied", false),
                 lastAppliedTimestamp = obj.optLong("timestamp", 0L)
             )

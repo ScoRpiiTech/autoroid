@@ -611,3 +611,45 @@
 ### 5. Build & Verification
 * Bumped `versionCode = 17` and `versionName = "1.2.16"`.
 * Verified release APK with `apksigner` (APK Signature Scheme v3).
+
+---
+
+## [v1.2.17] - Complete Turbo IMS / TensorIMS Feature Parity
+* **Date:** 2026-09-19
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
+
+### 1. 100% Feature Parity with TensorIMS
+* Added all remaining features, flags, and overrides from TensorIMS (Turbo IMS) to Autoroid:
+  - **Cross-SIM Calling (`carrier_cross_sim_calling_available_bool`)**: Enables Wi-Fi Calling over secondary SIM cellular data when off-grid or traveling.
+  - **5G NR Modem Announcement (`carrier_nr_availabilities_int_array`)**: Explicitly announces Standalone (SA) and Non-Standalone (NSA) 5G availability `[1, 2]` to the baseband modem and OS.
+  - **5G+ / Ultra Wideband Icon Overrides (`FiveGPlusConfig`)**: Configures SystemUI status bar icons to display `5G+` / `5G_UW` indicator on mid/high-band 5G networks (C-Band, mmWave).
+  - **5G Signal Boundary Calibration (`5g_nr_ssrsrp_thresholds_int_array`)**: Overrides SS-RSRP threshold boundaries to `[-128, -98 dBm]` for aggressive 5G cell latching and improved fringe reception.
+  - **Enhanced 4G LTE Controls (`enhanced_4g_lte_on_by_default_bool`)**: Enforces default 4G advanced calling and provision state.
+  - **Status Bar Icon Customizations**:
+    - `show_4g_for_lte_data_icon_bool`: Replaces standard "LTE" text with "4G" in the status bar.
+    - `hide_lte_plus_data_icon_bool`: Hides the carrier aggregation "LTE+" badge for a cleaner status bar.
+  - **Android Settings Visibility**: Ensures VoLTE and Wi-Fi Calling toggles remain unhidden in device settings (`editable_enhanced_4g_lte_bool`, `editable_wfc_mode_bool`).
+  - **Custom Carrier Name (`carrier_name_string`)**: Overrides the network operator name displayed on lock screen and status bar.
+  - **Custom IMS SIP User-Agent (`carrier_ims_user_agent_string`)**: Customizes the SIP registration user-agent header string for carrier IMS bypass.
+
+### 2. Architectural & Model Expansion
+* **`ImsConfig.kt`**:
+  - Expanded data class with all 16 configuration parameters and defaults.
+  - Added `FiveGPlusConfig` helper mapping full carrier bundle keys (`5g_icon_configuration_string_array`, `5g_icon_display_grace_period_string_array`).
+  - Implemented `toBundle()` and `toCarrierConfigBundle()` packaging arrays, strings, and boolean keys directly for `ImsModifier` and `BrokerInstrumentation`.
+* **`ImsRepository.kt`**:
+  - Full JSON serialization and deserialization in `SharedPreferences` supporting all newly added switches, thresholds, and text fields.
+* **`ImsController.kt`**:
+  - Transmits full multi-type `config.toBundle()` to `ImsModifier` and `BrokerInstrumentation`.
+
+### 3. Cyberpunk UI Redesign
+* **`ImsCarrierPatcherCard.kt`**:
+  - Reorganized into 3 distinct, organized sections:
+    1. **Core Calling & IMS Features**: VoLTE, VoWiFi, VoWiFi Roaming, VoNR (5G Voice), VT, UT / USSD, Cross-SIM Calling.
+    2. **Advanced 5G & Status Bar Icons (Expandable Accordion)**: 5G NR SA/NSA, 5G+ Ultra Wideband icon, 5G signal calibration, 4G vs LTE text, and LTE+ badge toggle.
+    3. **Carrier Name & SIP User-Agent (Expandable Accordion)**: Text inputs for custom carrier branding and SIP UA string.
+
+### 4. Build & Distribution
+* Bumped `versionCode = 18` and `versionName = "1.2.17"`.
+* Verified release APK with `apksigner` (APK Signature Scheme v3).
+
