@@ -653,3 +653,11 @@
 * Bumped `versionCode = 18` and `versionName = "1.2.17"`.
 * Verified release APK with `apksigner` (APK Signature Scheme v3).
 
+### 5. Documentation Updates
+* Extensively updated `README.md` with:
+  - Technical background on Google Pixel carrier restrictions and CVE-2025-48617 bypass mechanics.
+  - Complete 16-feature coverage matrix for Carrier & IMS Patcher (VoLTE, VoWiFi, VoNR, 5G SA/NSA, 5G+ Ultra Wideband, signal calibration, icon tweaks, and identity overrides).
+  - Detailed Automated Scheduled SIM Data Switcher documentation (circular 24h midnight rollover, exact alarms, boot persistence).
+  - Updated technology stack with the compile-only `:stub` framework module.
+
+

@@ -163,6 +163,7 @@ Whenever a version tag (`v*`) is pushed:
 
 ```
 /Volumes/Data/Projects/Autoroid/
+├── README.md                                # Public documentation & feature matrix
 ├── PROJECT_CONTEXT.md                       # Comprehensive architecture & codebase reference
 ├── CHANGELOG.md                             # Running history of updates and modifications
 ├── autoroid-release.jks                     # Production signing keystore (alias: key)
