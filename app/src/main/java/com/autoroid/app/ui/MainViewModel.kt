@@ -383,6 +383,10 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    fun clearConsoleLogs() {
+        _consoleLogs.value = emptyList()
+    }
+
     fun log(msg: String) {
         val timestamp = timeFormat.format(Date())
         _consoleLogs.value = listOf("[$timestamp] $msg") + _consoleLogs.value.take(49)

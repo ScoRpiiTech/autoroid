@@ -247,11 +247,21 @@ Whenever a version tag (`v*`) is pushed:
 │       │   └── ui/
 │       │       ├── MainActivity.kt          # Host activity & Shizuku permission listener
 │       │       ├── MainViewModel.kt         # Reactive state manager (StateFlow)
+│       │       ├── navigation/
+│       │       │   └── AutoroidNavTab.kt    # Navigation destinations enum (IMS, SHIELD, WORKFLOWS, TERMINAL)
+│       │       ├── components/
+│       │       │   └── FloatingBottomBar.kt # Floating glassmorphic navigation bar
 │       │       ├── dialogs/
 │       │       │   ├── FeatureInfoDialog.kt # Interactive help & architectural guide dialogs
 │       │       │   └── TimePickerDialog.kt  # Cyberpunk digital clock picker dialog
-│       │       ├── theme/Theme.kt           # Cyber dark Material 3 theme
-│       │       └── screens/HomeScreen.kt    # Primary Compose dashboard
+│       │       ├── screens/
+│       │       │   ├── HomeScreen.kt        # Primary host dashboard with live privilege chip & animated transitions
+│       │       │   └── tabs/
+│       │       │       ├── ImsScreenView.kt # Dedicated IMS Patcher & Dual-SIM manager tab
+│       │       │       ├── ShieldScreenView.kt # Dedicated Bank Shield & service inspection tab
+│       │       │       ├── WorkflowsScreenView.kt # Dedicated automations & macro feed tab
+│       │       │       └── TerminalScreenView.kt # Dedicated elevated console & logs tab
+│       │       └── theme/Theme.kt           # Cyber dark & glassmorphism Material 3 theme
 │       └── res/
 │           ├── xml/
 │           │   ├── data_extraction_rules.xml

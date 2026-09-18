@@ -660,4 +660,41 @@
   - Detailed Automated Scheduled SIM Data Switcher documentation (circular 24h midnight rollover, exact alarms, boot persistence).
   - Updated technology stack with the compile-only `:stub` framework module.
 
+---
+
+## [v1.2.18] - Modern Cyber-Glassmorphic UI & Navigation Makeover
+* **Date:** 2026-09-19
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
+
+### 1. Navigation Architecture & De-crowding
+* Replaced the crowded, monolithic single-page `LazyColumn` with a modern multi-tab navigation shell powered by a floating glassmorphic bottom bar.
+* **`AutoroidNavTab.kt`**: Defines 4 dedicated, focused feature spaces:
+  1. **`IMS & Telephony` (`ImsScreenView.kt`)**: Hero showcase for Carrier & IMS Patcher (VoLTE, VoWiFi, VoNR 5G, 5G+, signal calibration, carrier branding) and Dual-SIM Data & Schedule manager.
+  2. **`Bank Shield` (`ShieldScreenView.kt`)**: Bank Mode anti-detection accessibility shield with glowing halo status ring (Protected / Vulnerable / All Clear), live service registry breakdown, and Quick Settings tile guide.
+  3. **`Automations` (`WorkflowsScreenView.kt`)**: Dynamic app macro feed, 1-tap macro runner, and Screen Pointer Location coordinate inspector.
+  4. **`Console` (`TerminalScreenView.kt`)**: Elevated power shell command runner with quick command chips (`id`, `getprop`, `dumpsys telephony.registry`), clearable logs, and syntax-styled terminal output.
+
+### 2. Modern Floating Navigation Bar (`FloatingBottomBar.kt`)
+* Translucent glassmorphic pill (`FloatingBarGradient`) with 26dp rounded corners, subtle cyber borders, and drop shadow.
+* Animated selection indicators with smooth spring-based pill expansion and glowing emerald status dots.
+* Respects Android edge-to-edge system navigation bars (`navigationBarsPadding()`).
+
+### 3. Top App Bar Modernization
+* Replaced static text headers with an interactive Top App Bar:
+  - High-tech "AUTOROID" cyber branding with letter spacing.
+  - Interactive **Live Privilege Pill** (`ROOT`, `SHIZUKU`, `ADB`, `UNAUTHORIZED`) with dynamic pulsing color badges and 1-tap elevation prompt.
+  - Status-aware Update button with emerald glow when GitHub updates are available.
+  - System guide and fast refresh actions.
+
+### 4. Theme & Token Overhaul (`Theme.kt`)
+* Introduced modern cyber-glassmorphic styling tokens:
+  - `ElectricBlue` (`#00A3FF`), `NeonPurple` (`#A855F7`), `GlassSurface` (`#161E2E`), `GlassBorder` (`#4000E5FF`).
+  - Added gradient brushes (`CyberCyanGradient`, `NeonGreenGradient`, `FloatingBarGradient`).
+
+### 5. Build & Verification
+* Bumped `versionCode = 19` and `versionName = "1.2.18"`.
+* Compiled with JDK 19, AGP 8.6.0, Target SDK 36.
+* Verified release APK with `apksigner` (APK Signature Scheme v3).
+
+
 
