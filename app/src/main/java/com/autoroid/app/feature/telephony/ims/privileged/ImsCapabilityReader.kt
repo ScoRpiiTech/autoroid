@@ -4,7 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Instrumentation
 import android.os.Bundle
-import android.os.IBinder
+import android.os.ServiceManager
 import android.telephony.AccessNetworkConstants
 import android.telephony.NetworkRegistrationInfo
 import android.telephony.TelephonyManager
@@ -12,7 +12,6 @@ import android.util.Log
 import com.android.internal.telephony.ITelephony
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
-import rikka.shizuku.SystemServiceHelper
 
 class ImsCapabilityReader : Instrumentation() {
 
@@ -45,11 +44,9 @@ class ImsCapabilityReader : Instrumentation() {
         val failure = runWithShellPermissionDelegation(TAG) {
             // 1. IMS Registered check via telephony stub
             try {
-                val binder = SystemServiceHelper.getSystemService("phone")
+                val binder = ServiceManager.getService("phone")
                 if (binder != null) {
-                    val stubClass = Class.forName("com.android.internal.telephony.ITelephony\$Stub")
-                    val asInterface = stubClass.getMethod("asInterface", IBinder::class.java)
-                    val telephony = asInterface.invoke(null, ShizukuBinderWrapper(binder)) as ITelephony
+                    val telephony = ITelephony.Stub.asInterface(ShizukuBinderWrapper(binder))
                     result.putBoolean(BUNDLE_IMS_REGISTERED, telephony.isImsRegistered(subId))
                 }
             } catch (t: Throwable) {

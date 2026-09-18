@@ -4,14 +4,13 @@ import android.app.Activity
 import android.app.Instrumentation
 import android.content.Context
 import android.os.Bundle
-import android.os.IBinder
+import android.os.ServiceManager
 import android.telephony.CarrierConfigManager
 import android.telephony.SubscriptionManager
 import android.util.Log
 import com.android.internal.telephony.ITelephony
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
-import rikka.shizuku.SystemServiceHelper
 
 class ImsResetter : Instrumentation() {
 
@@ -71,11 +70,9 @@ class ImsResetter : Instrumentation() {
 
             // Attempt telephony resetIms if available
             try {
-                val binder = SystemServiceHelper.getSystemService("phone")
+                val binder = ServiceManager.getService("phone")
                 if (binder != null) {
-                    val stubClass = Class.forName("com.android.internal.telephony.ITelephony\$Stub")
-                    val asInterface = stubClass.getMethod("asInterface", IBinder::class.java)
-                    val telephony = asInterface.invoke(null, ShizukuBinderWrapper(binder)) as ITelephony
+                    val telephony = ITelephony.Stub.asInterface(ShizukuBinderWrapper(binder))
                     for (id in subIds) {
                         try {
                             val subInfo = sm.getActiveSubscriptionInfo(id)

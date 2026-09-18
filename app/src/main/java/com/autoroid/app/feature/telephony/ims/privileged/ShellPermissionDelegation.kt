@@ -4,11 +4,10 @@ import android.app.IActivityManager
 import android.app.Instrumentation
 import android.content.Context
 import android.os.Build
-import android.os.IBinder
+import android.os.ServiceManager
 import android.system.Os
 import android.util.Log
 import rikka.shizuku.ShizukuBinderWrapper
-import rikka.shizuku.SystemServiceHelper
 import java.lang.reflect.InvocationTargetException
 
 private const val TAG = "ShellPermission"
@@ -54,11 +53,9 @@ fun Instrumentation.runWithShellPermissionDelegation(
     var failure: Throwable? = null
 
     try {
-        val binder = SystemServiceHelper.getSystemService(Context.ACTIVITY_SERVICE)
-            ?: error("Activity service unavailable")
-        val stubClass = Class.forName("android.app.IActivityManager\$Stub")
-        val asInterface = stubClass.getMethod("asInterface", IBinder::class.java)
-        activityManager = asInterface.invoke(null, ShizukuBinderWrapper(binder)) as IActivityManager
+        val binder = ServiceManager.getService(Context.ACTIVITY_SERVICE)
+            ?: error("activity service unavailable")
+        activityManager = IActivityManager.Stub.asInterface(ShizukuBinderWrapper(binder))
 
         Log.i(tag, "Starting shell permission identity delegation for UID ${Os.getuid()}")
         activityManager.startDelegateShellPermissionIdentity(Os.getuid(), null)
@@ -100,4 +97,11 @@ fun Throwable.toPrivilegedErrorMessage(): String {
     val root = privilegedRootCause()
     val name = root.javaClass.simpleName.ifBlank { root.javaClass.name }
     return root.message?.takeIf { it.isNotBlank() }?.let { "$name: $it" } ?: name
+}
+
+fun isCarrierConfigPermissionError(message: String): Boolean {
+    return message.contains("SecurityException", ignoreCase = true) ||
+            message.contains("android.permission.MODIFY_PHONE_STATE", ignoreCase = true) ||
+            message.contains("No permission to write to carrier config", ignoreCase = true) ||
+            message.contains("overrideConfig cannot be invoked", ignoreCase = true)
 }

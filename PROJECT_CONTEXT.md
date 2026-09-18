@@ -1,6 +1,6 @@
 # Autoroid - Project Architecture & Technical Context
 
-> **Last Updated:** 2026-09-18  
+> **Last Updated:** 2026-09-19  
 > **Package ID:** `com.autoroid.app`  
 > **Target Android Version:** Android 15 / 16 / 17 (`compileSdk = 36`, `targetSdk = 36`, `minSdk = 29`)  
 > **Distribution Model:** Self-hosted / Power User Automations (Not bound by Google Play sandbox restrictions)
@@ -56,7 +56,7 @@ Whenever a version tag (`v*`) is pushed:
 * **`PrivilegeEngine`**: Interface defining `suspend fun execute(command: String): CommandResult` and `suspend fun isAvailable(): Boolean`.
 * **`RootEngine`**: Executes commands as `su -c ...` (UID 0) across Magisk, KernelSU, and APatch.
 * **`ShizukuEngine`**: Executes shell commands with UID 2000 ADB privileges using direct AIDL `IShizukuService.Stub.asInterface(Shizuku.getBinder()).newProcess(...)` with `ParcelFileDescriptor` streaming.
-* **`ShizukuProvider`**: Declared in `AndroidManifest.xml` with `${applicationId}.shizuku` authority to establish the IPC binder bridge between Shizuku Server and Autoroid.
+* **`ShizukuProvider`**: Custom provider subclassing `rikka.shizuku.ShizukuProvider`, automatically exempting hidden APIs via `HiddenApiBypass.addHiddenApiExemptions("")` on process bootstrap before `Application.onCreate()`.
 * **`PrivilegeManager`**: Dynamic resolution. Automatically checks Root first, falls back to Shizuku, handles runtime disconnects, and coordinates fallback execution.
 
 ### B. Native Core (`app/src/main/cpp` & `app/src/main/java/com/autoroid/app/core/native`)
@@ -89,12 +89,14 @@ Whenever a version tag (`v*`) is pushed:
    - **Problem:** Google limits VoLTE, VoWiFi, and 5G VoNR on Pixel devices in unsupported regions (e.g. Pakistan). Android resets carrier overrides on reboot, and CVE-2025-48617 blocks shell from calling `overrideConfig`.
    - **`ImsConfig.kt`**: Feature flags mapping to `CarrierConfigManager` keys (`carrier_volte_available_bool`, `carrier_wfc_ims_available_bool`, `vonr_enabled_bool`, `carrier_supports_ss_over_ut_bool`, settings toggle visibility).
    - **`ImsRepository.kt`**: SharedPreferences persistence (`autoroid_ims_carrier_config`) for Physical SIM and eSIM independent configs.
-   - **Compile-Time Framework Stubs (`:stub` module)**: Provides `IActivityManager`, `IInstrumentationWatcher`, `UiAutomationConnection`, and `ITelephony` stubs with 0 APK footprint.
-   - **`ImsModifier.kt`**: Privileged instrumentation runner executed via `IActivityManager.startInstrumentation(..., flags = 8, ...)`. Uses shell permission delegation (`startDelegateShellPermissionIdentity`), bypassing CVE-2025-48617 on Pixel without killing or restarting the app. Sets persistent VoLTE modem provisioning (`ProvisioningManager`, `ImsMmTelManager`, `SubscriptionManager`).
+   - **Compile-Time Framework Stubs (`:stub` module)**: Provides `ServiceManager`, `IActivityManager`, `IInstrumentationWatcher`, `UiAutomationConnection`, and `ITelephony` stubs with 0 APK footprint.
+   - **Two-Tier Privileged Instrumentation**:
+     - Primary: `ImsModifier.kt` launches via `IActivityManager.startInstrumentation(..., flags = 8)` using `ServiceManager.getService("activity")` wrapped in `ShizukuBinderWrapper`. Delegates shell identity (`startDelegateShellPermissionIdentity`), overrides carrier configs, and sets persistent modem NVRAM provisioning.
+     - Fallback: `BrokerInstrumentation.kt` automatically executes if `ImsModifier` yields an empty result or permission error on restricted Pixel builds, ensuring 100% parity with TensorIMS.
    - **`ImsResetter.kt` & `ImsCapabilityReader.kt`**: Instrumentation runners for carrier configuration wipe, IMS reset, and real-time VoLTE/VoWiFi/VoNR capability inspection.
    - **`ImsController.kt`**: Privileged orchestration engine coordinating Shizuku instrumentation sessions and Root fallbacks.
    - **Reboot Engine:** `BootReceiver` and `AutoroidApp` automatically restore overrides on phone restart without needing Turbo IMS.
-   - **`ImsCarrierPatcherCard.kt`**: Microchip cyber card with SIM slot switcher, live status banner, feature toggles, and 1-tap apply/reset actions.
+   - **`ImsCarrierPatcherCard.kt`**: Microchip cyber card with SIM slot switcher, live status banner, live Shizuku authorization warning, feature toggles, and 1-tap apply/reset actions.
 5. **Quick Settings Tiles (`feature/tiles`)**:
    - `BankModeTileService`: Quick Settings tile displaying real-time protected/running/clean state.
    - `SimSwitchTileService`: Quick Settings tile showing active SIM type and carrier name for 1-tap switching.
@@ -182,6 +184,7 @@ Whenever a version tag (`v*`) is pushed:
 │       │   │       ├── PrivilegeEngine.kt   # Engine interface
 │       │   │       ├── RootEngine.kt        # Root su backend
 │       │   │       ├── ShizukuEngine.kt     # Shizuku reflection backend
+│       │   │       ├── ShizukuProvider.kt   # Custom early hidden API exemption provider
 │       │   │       └── PrivilegeManager.kt  # Dynamic dispatcher
 │       │   ├── feature/
 │       │   │   ├── accessibility/
@@ -195,6 +198,7 @@ Whenever a version tag (`v*`) is pushed:
 │       │   │   │   │   ├── privileged/
 │       │   │   │   │   │   ├── ShellPermissionDelegation.kt # Shell permission delegation wrapper
 │       │   │   │   │   │   ├── ImsModifier.kt     # Privileged instrumentation runner for overrides & modem NVRAM
+│       │   │   │   │   │   ├── BrokerInstrumentation.kt # Fallback instrumentation runner for pure carrier overrides
 │       │   │   │   │   │   ├── ImsResetter.kt     # Privileged instrumentation runner for reset
 │       │   │   │   │   │   └── ImsCapabilityReader.kt # Privileged live capability inspection
 │       │   │   │   │   ├── repository/

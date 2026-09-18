@@ -109,7 +109,11 @@ class ImsModifier : Instrumentation() {
             val mmTel = mmTelClass.getMethod("createForSubscriptionId", intType).invoke(null, subId)
             val setProvisioning = provisioningClass.getMethod("setProvisioningIntValue", intType, intType)
             val setUser = mmTelClass.getMethod("setAdvancedCallingSettingEnabled", Boolean::class.javaPrimitiveType)
-            val optInKey = provisioningClass.getField("KEY_VOIMS_OPT_IN_STATUS").getInt(null)
+            val optInKey = try {
+                provisioningClass.getField("KEY_VOIMS_OPT_IN_STATUS").getInt(null)
+            } catch (_: Throwable) {
+                10 // Standard Android constant KEY_VOIMS_OPT_IN_STATUS
+            }
 
             setProvisioning.invoke(provisioning, optInKey, 1)
             setUser.invoke(mmTel, true)

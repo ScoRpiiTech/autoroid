@@ -583,3 +583,31 @@
 ### 4. Build & Distribution
 * Bumped `versionCode = 16` and `versionName = "1.2.15"`.
 * Verified with `apksigner` (APK Signature Scheme v3).
+
+---
+
+## [v1.2.16] - Full TensorIMS Parity: Direct ServiceManager IPC & BrokerInstrumentation Fallback
+* **Date:** 2026-09-19
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
+
+### 1. Root Cause Resolution: Binder Proxy Wrapping
+* **Identified Bug:** Autoroid previously retrieved system binders using Rikka's `SystemServiceHelper.getSystemService(Context.ACTIVITY_SERVICE)`, which returns a remote binder proxy from Shizuku. Passing this already-proxied binder into `ShizukuBinderWrapper(binder)` corrupted IPC transactions when invoking `startInstrumentation()` and `startDelegateShellPermissionIdentity()`.
+* **Fix:** Aligned with TensorIMS by compiling `android.os.ServiceManager.getService(name)` into the `:stub` module, acquiring the real local system binder, and wrapping it with `ShizukuBinderWrapper(binder)` for clean Shizuku server transaction interception.
+
+### 2. Two-Tier Execution Strategy with `BrokerInstrumentation` Fallback
+* Introduced `BrokerInstrumentation.kt` as an automated secondary fallback.
+* When `ImsModifier` yields an empty result or permission error on modern Pixels with tight SELinux policies, `ImsController.overrideImsConfig()` immediately delegates to `BrokerInstrumentation` to apply carrier configurations without modem NVRAM provisioning failures.
+* Also added fallback to `BrokerInstrumentation` for factory carrier resets (`clearConfig`).
+
+### 3. Early Process Bootstrap Hidden API Exemption
+* Created `com.autoroid.app.core.privilege.ShizukuProvider` subclassing `rikka.shizuku.ShizukuProvider`.
+* Calls `HiddenApiBypass.addHiddenApiExemptions("")` in `onCreate()` before `Application.onCreate()`, ensuring all Android runtime hidden API enforcement is removed before any system component initializes.
+
+### 4. Safe Modem NVRAM Provisioning & Error Visibility
+* Isolated `applyPersistentProvisioning()` in `ImsModifier` with safe fallbacks (`KEY_VOIMS_OPT_IN_STATUS = 10`) so modem NVRAM provisioning hiccups never fail the carrier config override.
+* Upgraded `ImsCarrierPatcherCard` with a live Shizuku authorization warning banner (with 1-tap "GRANT" button) and an in-card live operation result badge.
+* Propagated clear diagnostic error messages instead of generic fallbacks.
+
+### 5. Build & Verification
+* Bumped `versionCode = 17` and `versionName = "1.2.16"`.
+* Verified release APK with `apksigner` (APK Signature Scheme v3).

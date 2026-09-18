@@ -76,7 +76,7 @@
 
         <!-- Shizuku Provider: Required for IPC binder token exchange with Shizuku server -->
         <provider
-            android:name="rikka.shizuku.ShizukuProvider"
+            android:name=".core.privilege.ShizukuProvider"
             android:authorities="${applicationId}.shizuku"
             android:multiprocess="false"
             android:enabled="true"
@@ -102,6 +102,11 @@
     <instrumentation
         android:name=".feature.telephony.ims.privileged.ImsModifier"
         android:label="Autoroid IMS Modifier"
+        android:targetPackage="${applicationId}" />
+
+    <instrumentation
+        android:name=".feature.telephony.ims.privileged.BrokerInstrumentation"
+        android:label="Autoroid IMS Broker"
         android:targetPackage="${applicationId}" />
 
     <instrumentation

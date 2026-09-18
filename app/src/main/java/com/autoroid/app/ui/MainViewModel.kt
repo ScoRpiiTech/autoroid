@@ -39,6 +39,7 @@ class MainViewModel : ViewModel() {
     val simSchedule: StateFlow<com.autoroid.app.feature.telephony.schedule.model.SimSchedule> = simScheduleManager.schedule
     val imsConfigs: StateFlow<Map<Int, com.autoroid.app.feature.telephony.ims.model.ImsConfig>> = imsRepository.configs
     val isImsApplying: StateFlow<Boolean> = imsController.isApplying
+    val imsLastResult: StateFlow<String?> = imsController.lastResult
     val workflows: StateFlow<List<com.autoroid.app.feature.workflow.model.Workflow>> = workflowRepository.workflows
     val executionState: StateFlow<com.autoroid.app.feature.workflow.runner.ExecutionState> = workflowRunner.executionState
     val isPointerLocationActive: StateFlow<Boolean> = pointerLocationHelper.isPointerLocationActive

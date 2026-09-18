@@ -27,7 +27,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.border
 import androidx.compose.ui.unit.sp
+import com.autoroid.app.core.privilege.PrivilegeLevel
 import com.autoroid.app.feature.telephony.SimSlotInfo
 import com.autoroid.app.feature.telephony.ims.model.ImsConfig
 import com.autoroid.app.ui.theme.*
@@ -37,6 +39,9 @@ fun ImsCarrierPatcherCard(
     simSlots: List<SimSlotInfo>,
     imsConfigs: Map<Int, ImsConfig>,
     isApplying: Boolean,
+    privilegeLevel: PrivilegeLevel = PrivilegeLevel.NONE,
+    lastResult: String? = null,
+    onRequestShizuku: () -> Unit = {},
     onSaveConfig: (ImsConfig) -> Unit,
     onApplyConfig: (slotIndex: Int, subId: Int, ImsConfig) -> Unit,
     onApplyAll: () -> Unit,
@@ -125,6 +130,45 @@ fun ImsCarrierPatcherCard(
             }
 
             Spacer(modifier = Modifier.height(14.dp))
+
+            // Shizuku Privilege Check Banner
+            if (privilegeLevel == PrivilegeLevel.NONE) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(AmberWarn.copy(alpha = 0.12f))
+                        .border(1.dp, AmberWarn.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                        .padding(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = AmberWarn, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Shizuku or Root required for Pixel IMS patching.",
+                                fontSize = 11.sp,
+                                color = AmberWarn,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                        Button(
+                            onClick = onRequestShizuku,
+                            colors = ButtonDefaults.buttonColors(containerColor = CyberCyan, contentColor = Color.Black),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Text("GRANT", fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+            }
 
             // SIM Slot Selector Tabs
             if (simSlots.isNotEmpty()) {
@@ -414,6 +458,43 @@ fun ImsCarrierPatcherCard(
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
                         )
+                    }
+                }
+
+                // Live Operation Result Banner
+                if (!lastResult.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    val isSuccess = !lastResult.contains("Failed", ignoreCase = true) &&
+                                    !lastResult.contains("Error", ignoreCase = true) &&
+                                    !lastResult.contains("not granted", ignoreCase = true) &&
+                                    !lastResult.contains("not running", ignoreCase = true)
+                    val resultBg = if (isSuccess) NeonGreen.copy(alpha = 0.10f) else AmberWarn.copy(alpha = 0.12f)
+                    val resultBorder = if (isSuccess) NeonGreen.copy(alpha = 0.35f) else AmberWarn.copy(alpha = 0.4f)
+                    val resultColor = if (isSuccess) NeonGreen else AmberWarn
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(resultBg)
+                            .border(1.dp, resultBorder, RoundedCornerShape(8.dp))
+                            .padding(10.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = if (isSuccess) Icons.Default.Check else Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = resultColor,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = lastResult,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = resultColor
+                            )
+                        }
                     }
                 }
             }

@@ -8,8 +8,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.os.IBinder
 import android.os.PersistableBundle
+import android.os.ServiceManager
 import android.telephony.CarrierConfigManager
 import android.telephony.SubscriptionManager
 import android.util.Log
@@ -17,9 +17,11 @@ import com.autoroid.app.core.privilege.PrivilegeLevel
 import com.autoroid.app.core.privilege.PrivilegeManager
 import com.autoroid.app.feature.telephony.TelephonyController
 import com.autoroid.app.feature.telephony.ims.model.ImsConfig
+import com.autoroid.app.feature.telephony.ims.privileged.BrokerInstrumentation
 import com.autoroid.app.feature.telephony.ims.privileged.ImsCapabilityReader
 import com.autoroid.app.feature.telephony.ims.privileged.ImsModifier
 import com.autoroid.app.feature.telephony.ims.privileged.ImsResetter
+import com.autoroid.app.feature.telephony.ims.privileged.isCarrierConfigPermissionError
 import com.autoroid.app.feature.telephony.ims.repository.ImsRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -34,7 +36,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
-import rikka.shizuku.SystemServiceHelper
 
 class ImsController(
     private val context: Context,
@@ -63,24 +64,19 @@ class ImsController(
             var errorMessage: String? = null
 
             // Method 1: Privileged Instrumentation via Shizuku (Exact Turbo IMS / TensorIMS bypass)
-            if (Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
-                val args = Bundle().apply {
-                    putInt(ImsModifier.BUNDLE_SELECT_SIM_ID, subId)
-                    putBoolean(ImsModifier.BUNDLE_RESET, false)
-                    for ((key, value) in updatedConfig.toKeyValuePairs()) {
-                        putBoolean(key, value)
-                    }
-                }
-
-                val result = startInstrumentation(context, ImsModifier::class.java, args, receiveResult = true)
-                if (result != null) {
-                    isSuccess = result.getBoolean(ImsModifier.BUNDLE_RESULT, false)
-                    if (!isSuccess) {
-                        errorMessage = result.getString(ImsModifier.BUNDLE_RESULT_MSG)
+            if (Shizuku.pingBinder()) {
+                if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+                    val (success, errorMsg) = overrideImsConfig(subId, updatedConfig)
+                    if (success) {
+                        isSuccess = true
+                    } else {
+                        errorMessage = errorMsg
                     }
                 } else {
-                    errorMessage = "Instrumentation returned no response. Ensure Shizuku is running."
+                    errorMessage = "Shizuku permission not granted. Please authorize Autoroid in Shizuku."
                 }
+            } else {
+                errorMessage = "Shizuku service is not running. Please start Shizuku."
             }
 
             // Method 2: Root fallback (UID 0)
@@ -88,6 +84,7 @@ class ImsController(
                 val rootRes = applyViaRoot(subId, updatedConfig.toCarrierConfigBundle())
                 if (rootRes) {
                     isSuccess = true
+                    errorMessage = null
                 }
             }
 
@@ -111,6 +108,79 @@ class ImsController(
         } finally {
             _isApplying.value = false
         }
+    }
+
+    /**
+     * Executes two-tier IMS configuration override matching TensorIMS:
+     * 1. Primary path: ImsModifier (carrier override + persistent modem NVRAM provisioning)
+     * 2. Fallback path: BrokerInstrumentation (pure carrier override under shell delegation)
+     */
+    private suspend fun overrideImsConfig(
+        subId: Int,
+        config: ImsConfig
+    ): Pair<Boolean, String?> {
+        val primaryArgs = Bundle().apply {
+            putInt(ImsModifier.BUNDLE_SELECT_SIM_ID, subId)
+            putBoolean(ImsModifier.BUNDLE_RESET, false)
+            for ((key, value) in config.toKeyValuePairs()) {
+                putBoolean(key, value)
+            }
+        }
+
+        Log.i(TAG, "overrideImsConfig: attempting via ImsModifier for subId $subId")
+        val result = startInstrumentation(context, ImsModifier::class.java, primaryArgs, receiveResult = true)
+        if (result == null) {
+            Log.w(TAG, "ImsModifier returned empty result, falling back to BrokerInstrumentation")
+            return tryOverrideWithBroker(subId, config, "ImsModifier returned empty result")
+        }
+
+        if (result.getBoolean(ImsModifier.BUNDLE_RESULT, false)) {
+            Log.i(TAG, "ImsModifier succeeded for subId $subId")
+            return Pair(true, null)
+        }
+
+        val msg = result.getString(ImsModifier.BUNDLE_RESULT_MSG) ?: "Unknown ImsModifier error"
+        Log.w(TAG, "ImsModifier failed: $msg. Trying fallback to BrokerInstrumentation...")
+        return tryOverrideWithBroker(subId, config, msg)
+    }
+
+    private suspend fun tryOverrideWithBroker(
+        subId: Int,
+        config: ImsConfig,
+        primaryError: String
+    ): Pair<Boolean, String?> {
+        if (!shouldRetryWithBroker(primaryError)) {
+            return Pair(false, primaryError)
+        }
+
+        val brokerArgs = Bundle().apply {
+            putInt(ImsModifier.BUNDLE_SELECT_SIM_ID, subId)
+            putBoolean(ImsModifier.BUNDLE_RESET, false)
+            for ((key, value) in config.toKeyValuePairs()) {
+                putBoolean(key, value)
+            }
+        }
+
+        val brokerResult = startInstrumentation(context, BrokerInstrumentation::class.java, brokerArgs, receiveResult = true)
+        if (brokerResult == null) {
+            return Pair(false, "$primaryError\nBroker fallback: failed with empty result")
+        }
+
+        if (brokerResult.getBoolean(ImsModifier.BUNDLE_RESULT, false)) {
+            Log.i(TAG, "BrokerInstrumentation fallback succeeded for subId $subId")
+            return Pair(true, null)
+        }
+
+        val brokerMsg = brokerResult.getString(ImsModifier.BUNDLE_RESULT_MSG) ?: "Unknown Broker error"
+        return Pair(false, "$primaryError\nBroker fallback: $brokerMsg")
+    }
+
+    private fun shouldRetryWithBroker(msg: String): Boolean {
+        return isCarrierConfigPermissionError(msg) ||
+                msg.contains("empty result", ignoreCase = true) ||
+                msg.contains("SecurityException", ignoreCase = true) ||
+                msg.contains("NoSuchFieldException", ignoreCase = true) ||
+                msg.contains("LinkageError", ignoreCase = true)
     }
 
     /**
@@ -171,6 +241,17 @@ class ImsController(
                 val result = startInstrumentation(context, ImsResetter::class.java, args, receiveResult = true)
                 if (result != null) {
                     isSuccess = result.getBoolean(ImsResetter.BUNDLE_RESULT, false)
+                }
+
+                if (!isSuccess) {
+                    val brokerArgs = Bundle().apply {
+                        putInt(ImsModifier.BUNDLE_SELECT_SIM_ID, subId)
+                        putBoolean(ImsModifier.BUNDLE_RESET, true)
+                    }
+                    val brokerResult = startInstrumentation(context, BrokerInstrumentation::class.java, brokerArgs, receiveResult = true)
+                    if (brokerResult != null) {
+                        isSuccess = brokerResult.getBoolean(ImsModifier.BUNDLE_RESULT, false)
+                    }
                 }
             }
 
@@ -286,11 +367,9 @@ class ImsController(
             }
 
             TelephonyController.ensureHiddenApiExempted()
-            val binder = SystemServiceHelper.getSystemService(Context.ACTIVITY_SERVICE)
+            val binder = ServiceManager.getService(Context.ACTIVITY_SERVICE)
                 ?: error("Activity service unavailable")
-            val stubClass = Class.forName("android.app.IActivityManager\$Stub")
-            val asInterface = stubClass.getMethod("asInterface", IBinder::class.java)
-            val am = asInterface.invoke(null, ShizukuBinderWrapper(binder)) as IActivityManager
+            val am = IActivityManager.Stub.asInterface(ShizukuBinderWrapper(binder))
 
             val name = ComponentName(context, cls)
             // INSTR_FLAG_NO_RESTART (1 << 3 = 8) keeps the running process alive!

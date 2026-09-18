@@ -105,6 +105,7 @@ fun HomeScreen(
     val simSchedule by viewModel.simSchedule.collectAsState()
     val imsConfigs by viewModel.imsConfigs.collectAsState()
     val isImsApplying by viewModel.isImsApplying.collectAsState()
+    val imsLastResult by viewModel.imsLastResult.collectAsState()
     val nativeVer by viewModel.nativeVersion.collectAsState()
     val logs by viewModel.consoleLogs.collectAsState()
     val isBusy by viewModel.isBusy.collectAsState()
@@ -277,6 +278,9 @@ fun HomeScreen(
                     simSlots = simSlots,
                     imsConfigs = imsConfigs,
                     isApplying = isImsApplying,
+                    privilegeLevel = privilegeLevel,
+                    lastResult = imsLastResult,
+                    onRequestShizuku = onRequestShizuku,
                     onSaveConfig = { viewModel.saveImsConfig(it) },
                     onApplyConfig = { slotIndex, subId, config -> viewModel.applyImsConfig(slotIndex, subId, config) },
                     onApplyAll = { viewModel.applyImsToAllActiveSims() },
