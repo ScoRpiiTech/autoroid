@@ -195,9 +195,13 @@ Whenever a version tag (`v*`) is pushed:
 ├── autoroid-release.jks                     # Production signing keystore (alias: key)
 ├── settings.gradle.kts                      # Gradle modules definition
 ├── build.gradle.kts                         # Root Gradle plugins
-├── gradle.properties                        # JVM & Android SDK flags
-├── local.properties                         # sdk.dir path
 ├── stub/                                    # Compile-only Android framework stubs (IActivityManager, IInstrumentationWatcher)
+├── website/                                 # Official landing page (autoroid.scorpiitech.com)
+│   ├── index.html                           # Cyber-glassmorphic landing page HTML
+│   ├── styles.css                           # Obsidian dark theme & glassmorphic styling
+│   ├── app.js                               # Dynamic GitHub Releases API client & tab switcher
+│   ├── CNAME                                # Custom domain binding (autoroid.scorpiitech.com)
+│   └── assets/logo.png                      # Branding launcher logo
 ├── app/
 │   ├── build.gradle.kts                     # App dependencies, NDK CMake config & signingConfigs
 │   └── src/main/
