@@ -737,6 +737,15 @@
 * Bumped `versionCode = 20` and `versionName = "1.3.0"`.
 * Verified release APK with `apksigner` (APK Signature Scheme v3).
 
+### 6. Public Documentation Revamp
+* Completely redesigned `README.md` into an attractive, high-converting showcase featuring:
+  - Cyberpunk badge array, application launcher logo, and 1-tap download buttons.
+  - "Why Autoroid?" feature comparison matrix vs Tasker, Turbo IMS, and NetGuard.
+  - Dedicated visual breakdowns for each navigation space (IMS & Telephony, Bank Shield, Automations, Console).
+  - Detailed FAQ section answering root requirements, Pixel IMS compatibility, and battery performance.
+  - Quick-start 1-minute setup guide for Root and Shizuku users.
+
+
 
 
 

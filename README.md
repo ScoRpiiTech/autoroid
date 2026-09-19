@@ -1,169 +1,257 @@
-# Autoroid
+<div align="center">
 
-<p align="center">
-  <strong>Elevated Privilege Automation Engine for Modern Android (Android 15 / 16 / 17)</strong>
-</p>
+  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="128" height="128" alt="Autoroid Logo" />
 
----
+  # Autoroid
+  
+  ### *The Elevated Power Suite & Automation Engine for Modern Android*
+  **Targeting Android 15, 16 & 17 Preview (`targetSdk = 36`, `compileSdk = 36`)**
 
-## ⚡ Overview
+  <p align="center">
+    <a href="https://github.com/ScoRpiiTech/autoroid/releases/latest">
+      <img src="https://img.shields.io/github/v/release/ScoRpiiTech/autoroid?style=for-the-badge&color=00E5FF&label=Latest%20Release" alt="Latest Release" />
+    </a>
+    <a href="https://github.com/ScoRpiiTech/autoroid/releases">
+      <img src="https://img.shields.io/github/downloads/ScoRpiiTech/autoroid/total?style=for-the-badge&color=2EE59D&label=Downloads" alt="Total Downloads" />
+    </a>
+    <a href="https://github.com/ScoRpiiTech/autoroid/blob/main/LICENSE">
+      <img src="https://img.shields.io/badge/License-Apache%202.0-F59E0B?style=for-the-badge" alt="License" />
+    </a>
+    <br/>
+    <a href="#">
+      <img src="https://img.shields.io/badge/Android-10%20to%2017-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android Versions" />
+    </a>
+    <a href="#">
+      <img src="https://img.shields.io/badge/Privilege-Root%20%7C%20Shizuku-EF4444?style=for-the-badge" alt="Privilege Modes" />
+    </a>
+    <a href="#">
+      <img src="https://img.shields.io/badge/Core-NDK%2027%20Native%20C%2B%2B17-6366F1?style=for-the-badge" alt="NDK C++" />
+    </a>
+  </p>
 
-**Autoroid** is an elevated-privilege Android automation engine designed for advanced personal workflows, system overrides, and application macros. 
+  <p align="center">
+    <b>No brittle accessibility lag. No PC required. No battery-draining VPN tunnels.</b><br/>
+    Direct Linux kernel and elevated Android IPC power at your fingertips.
+  </p>
 
-Unlike conventional automation apps that rely on brittle Accessibility service overlays or legacy hacks, Autoroid uses:
-1. **Direct Elevated IPC**: Direct communication with Android system services (`ITelephony`, `ISubscription`, `IAccessibilityManager`, `IActivityManager`) via **Root (UID 0)** and **Shizuku (UID 2000 ADB shell)**.
-2. **Native C++ Performance**: Sub-millisecond execution powered by a native C++17 shared library compiled with Android NDK 27 (`libautoroid_native.so`).
-3. **Carrier & IMS Patcher (Turbo IMS Parity)**: Complete elevated carrier configuration override engine for Google Pixel and modern Android devices, unlocking VoLTE, VoWiFi, VoNR 5G, 5G+ Ultra Wideband, Cross-SIM calling, and custom carrier branding.
-4. **Dynamic Bank Mode**: Snapshot and restore system accessibility registries on-the-fly to bypass aggressive anti-automation detection in modern banking and enterprise apps.
-5. **Scheduled SIM Data Switcher**: Exact-alarm automated SIM data switching for off-peak night packages with seamless midnight rollover and persistent boot restoration.
-6. **Smart Event Triggers & Any-App Workflow Engine**: Multi-step macro engine supporting Smart UI Clicks, coordinate tapping, gestures, and autonomous event triggers (Charger plug/unplug, Screen lock/unlock, Low battery, Wi-Fi connected).
-7. **Background App Freezer & Deep Sleep**: Elevated package suspension (`pm suspend`) and process termination (`am force-stop`) with automatic Screen-Off Deep Sleep.
-8. **NetCut (Per-App Firewall)**: Kernel-level (`iptables`) and policy-level (`netpolicy`) internet blocking without local VPN tunnels.
-9. **Shizuku Wireless ADB Auto-Starter**: Automatic port detection and 1-tap local daemon startup.
-10. **In-App Self-Update System**: Integrated with GitHub Releases for 1-click elevated silent self-installation.
+  <p align="center">
+    <a href="https://github.com/ScoRpiiTech/autoroid/releases/latest">
+      <img src="https://img.shields.io/badge/📥%20DOWNLOAD%20LATEST%20APK-v1.3.0%20(Release)-00E5FF?style=for-the-badge&labelColor=0D1117" height="38" alt="Download APK" />
+    </a>
+  </p>
 
----
-
-## 🛠️ Architecture & Tech Stack
-
-| Component | Specification |
-| :--- | :--- |
-| **Target OS** | Android 10+ (`minSdk = 29`, `targetSdk = 36`, `compileSdk = 36`) |
-| **Languages** | Kotlin 2.0.20, C++17, Java 17/19 |
-| **UI Framework** | Jetpack Compose Material 3 (Cyber Dark theme) |
-| **Native Toolchain** | Android NDK `27.0.12077973`, CMake `3.22.1` |
-| **Privilege Backends** | `rikka.shizuku:api:13.1.5`, Native su (`KernelSU`, `APatch`, `Magisk`) |
-| **Framework Stubs** | Compile-only `:stub` module (`IActivityManager`, `IInstrumentationWatcher`, `ITelephony`, `ServiceManager`) |
-
----
-
-## 🚀 Key Features
-
-### 1. Dynamic Dual Privilege Core
-* Automatically detects and switches between **Root (UID 0)** and **Shizuku (ADB UID 2000)**.
-* Executes elevated shell commands with real-time stdout/stderr streaming via `IShizukuService` IPC and native pipes.
-
-### 2. Bank Mode (Accessibility Shield)
-* **Problem**: Many banking and enterprise apps refuse to run or block logins if any Accessibility Service is running.
-* **Solution**: One-tap toggle snapshots all active accessibility services to private storage, wipes `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES`, and turns accessibility off. A second tap completely restores all previous services.
-* Includes a dedicated **Quick Settings Tile** for 1-tap toggling from the notification shade.
-
-### 3. Dual-SIM Data Switcher
-* Reads active subscriptions from `SubscriptionManager` and executes preferred data switching via elevated `cmd phone set-preferred-data-subId <subId>`.
-* Includes a dedicated **Quick Settings Tile** for fast switching.
-
-### 4. Carrier & IMS Patcher (Turbo IMS / TensorIMS Feature Parity)
-Unlock VoLTE, VoWiFi, and 5G VoNR on Google Pixel and modern Android devices in unsupported countries and carriers:
-* **The Problem**: Google restricts carrier features on Pixel devices in unsupported regions (e.g. Pakistan, India, Latin America, Southeast Asia). On Android 14/15/16 (post-October 2025 security patch / CVE-2025-48617), Android's `CarrierConfigLoader` blocks shell processes (UID 2000 ADB / Shizuku) from calling `overrideConfig()`.
-* **The Solution — Two-Tier Privileged Instrumentation**:
-  1. **Primary Runner (`ImsModifier`)**: Dynamically started via `IActivityManager.startInstrumentation()` with flag `8` (`INSTR_FLAG_NO_RESTART`) without killing the host app. Calls `startDelegateShellPermissionIdentity(Os.getuid(), null)` (authorized because the caller is an active instrumentation) and safely invokes `CarrierConfigManager.overrideConfig(subId, bundle)`.
-  2. **Modem NVRAM Hardware Provisioning**: Injects persistent IMS configuration directly to modem NVRAM via `ProvisioningManager` (`KEY_VOIMS_OPT_IN_STATUS`), `ImsMmTelManager.setAdvancedCallingSettingEnabled(true)`, and `SubscriptionManager` properties (`ENHANCED_4G_MODE_ENABLED`).
-  3. **Fallback Runner (`BrokerInstrumentation`)**: Automatic secondary fallback executing pure carrier config overrides if restricted by vendor SELinux rules.
-  4. **Early Hidden API Exemption**: Custom `ShizukuProvider` executes `HiddenApiBypass.addHiddenApiExemptions("")` on process bootstrap before `Application.onCreate()`.
-  5. **Reboot Persistence Engine**: `BootReceiver` restores carrier overrides immediately upon device restart (`BOOT_COMPLETED`), eliminating the need for separate background patcher apps.
-
-#### Full 16-Feature Coverage Matrix:
-| Feature Area | Key / Flag | Description |
-| :--- | :--- | :--- |
-| **VoLTE** | `carrier_volte_available_bool` | Voice over LTE on 4G networks |
-| **VoWiFi** | `carrier_wfc_ims_available_bool` | Native Wi-Fi Calling |
-| **VoWiFi Roaming** | `carrier_wfc_supports_wifi_only_bool` | Wi-Fi Calling while roaming internationally |
-| **VoNR (5G Voice)** | `vonr_enabled_bool` | Native Voice over 5G New Radio (SA) |
-| **Video Telephony (VT)** | `carrier_vt_available_bool` | Carrier ViLTE video calling |
-| **Supplementary Services (UT)** | `carrier_supports_ss_over_ut_bool` | USSD, call forwarding, and call waiting over 4G/5G |
-| **Cross-SIM Calling** | `carrier_cross_sim_calling_available_bool` | Wi-Fi Calling using secondary SIM's cellular data |
-| **5G SA / NSA Modem Announcement** | `carrier_nr_availabilities_int_array` | Explicit baseband modem announcement `[1, 2]` |
-| **5G+ / Ultra Wideband Icon** | `FiveGPlusConfig` | Display `5G+` / `5G_UW` indicator on C-Band & mmWave |
-| **5G Signal Boundary Calibration** | `5g_nr_ssrsrp_thresholds_int_array` | Calibrate SS-RSRP threshold boundaries to `[-128, -98 dBm]` |
-| **Enhanced 4G LTE Controls** | `enhanced_4g_lte_on_by_default_bool` | Enforce default 4G advanced calling state |
-| **Display "4G" for LTE** | `show_4g_for_lte_data_icon_bool` | Replaces status bar "LTE" indicator with "4G" |
-| **Hide "LTE+" CA Icon** | `hide_lte_plus_data_icon_bool` | Suppresses carrier aggregation badge |
-| **Settings Switch Visibility** | `editable_enhanced_4g_lte_bool`, etc. | Unhides VoLTE and Wi-Fi Calling switches in System Settings |
-| **Custom Carrier Name** | `carrier_name_string` | Overrides operator display name on lock screen and status bar |
-| **IMS SIP User-Agent Override** | `carrier_ims_user_agent_string` | Custom SIP UA header for carrier IMS network bypass |
+</div>
 
 ---
 
-### 5. Automated Scheduled SIM Data Switcher
-Automate SIM line switching for off-peak night packages without draining battery:
-* **Circular 24-Hour Scheduling**: Handles arbitrary midnight rollovers (e.g., switch to SIM 2 between 11:00 PM and 7:00 AM, or 12:00 AM and 9:00 AM).
-* **Exact Alarms via AlarmManager**: Uses `AlarmManager.setExactAndAllowWhileIdle()` with `SimScheduleReceiver` (`PARTIAL_WAKE_LOCK`) to fire reliably even during Android Deep Doze.
-* **Boot Restoration**: `BootReceiver` automatically recalculates transitions and schedules exact alarms upon device reboot.
-* **Dual-SIM & eSIM Support**: Operates across physical SIM cards and eSIM profiles via elevated `ITelephony` IPC.
+## ⚡ Why Autoroid?
+
+Traditional Android automation tools and tweak apps rely on outdated hacks: slow Accessibility overlays that lag or get blocked by banking apps, simulated VPN tunnels that consume 15–20% of your battery just to block internet, or separate root-only utility apps scattered across your device.
+
+**Autoroid unites all critical power-user capabilities into one unified, cyber-glassmorphic cockpit.**
+
+| Feature Comparison | **Autoroid** 🚀 | Tasker / MacroDroid | Turbo IMS / TensorIMS | NetGuard / VPN Firewalls |
+| :--- | :---: | :---: | :---: | :---: |
+| **Privilege Engine** | **Dual Root (UID 0) + Shizuku (UID 2000)** | Accessibility / Root | Shizuku / Root | VpnService |
+| **Execution Speed** | **Sub-millisecond Native C++17** | Interpreted Script | Java/Kotlin | User-space Proxy |
+| **Google Pixel IMS & VoLTE Unlocking** | ✅ **Full 16-Flag Engine** | ❌ None | ✅ IMS Only | ❌ None |
+| **Per-App Internet Blocker (Firewall)** | ✅ **VPN-Free (Kernel `iptables`)** | ❌ None | ❌ None | ⚠️ Battery-heavy local VPN |
+| **Bank App Detection Bypass (Bank Mode)** | ✅ **1-Tap Stealth Restore** | ❌ Gets detected | ❌ None | ❌ None |
+| **Autonomous Hardware Event Triggers** | ✅ **Charger, Lock, Battery, Wi-Fi** | ⚠️ Heavy battery draw | ❌ None | ❌ None |
+| **Background App Freezer & Auto-Sleep** | ✅ **`pm suspend` + `am force-stop`** | ⚠️ Partial | ❌ None | ❌ None |
+| **Off-Peak Night SIM Data Switcher** | ✅ **Exact Alarms + Midnight Rollover** | ⚠️ Complex setup | ❌ None | ❌ None |
+| **Shizuku Wireless ADB Auto-Starter** | ✅ **1-Tap Built-In Daemon Starter** | ❌ None | ❌ None | ❌ None |
+| **License & Pricing** | **100% Free & Open Source (Apache 2.0)** | Paid / Freemium | Free / Open Source | Freemium / In-App |
 
 ---
 
-### 6. Dynamic Workflow Engine & Smart Event Triggers
-Create, edit, reorder, and execute dynamic multi-step automations manually or autonomously:
-* **Polymorphic Step Types**:
-  - `LaunchApp`: Elevated activity start or launcher intent.
-  - `SmartClickText`: Fast XML UI dump parser that locates elements by text or content-description and injects center taps.
-  - `TapCoordinate`: Direct coordinate touch injection (`input tap X Y`).
-  - `PointerLocation`: Built-in real-time $(X, Y)$ screen coordinate inspector overlay.
-  - `Delay`, `Swipe`, and `ShellCommand`: Flexible macro building blocks.
-* **Autonomous Smart Event Triggers**:
-  - **Charger Connected / Disconnected**: Trigger routines upon docking or leaving chargers.
-  - **Screen Unlocked / Off**: Automatically run macros when locking or unlocking the phone.
-  - **Low Battery ($\le$ 20%)**: Trigger power-saving routines and alerts.
-  - **Wi-Fi Connected**: Fire automations whenever the device associates with Wi-Fi.
+## 📱 Navigation Spaces & Feature Showcase
+
+Autoroid features an edge-to-edge **Cyber-Glassmorphic Multi-Tab UI** engineered for speed and clarity:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ⚡ IMS & TELEPHONY  │  🛡️ BANK SHIELD  │  🤖 AUTOMATIONS  │  💻 CONSOLE  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 1. ⚡ IMS & Telephony: Carrier & Modem Patcher
+> **Unlock VoLTE, VoWiFi, and 5G VoNR on Google Pixel & modern Android devices worldwide.**
+
+Google restricts carrier features on Pixel devices in unsupported countries (Pakistan, India, Latin America, Southeast Asia, etc.). Android's `CarrierConfigLoader` also blocks shell processes from calling `overrideConfig()` via CVE-2025-48617.
+
+Autoroid bypasses this entirely using **Two-Tier Privileged Instrumentation**:
+* **16-Feature Complete Matrix**:
+  * 📞 **VoLTE**: Voice over LTE high-definition audio.
+  * 📶 **VoWiFi & VoWiFi Roaming**: Native Wi-Fi Calling at home and abroad.
+  * 🚀 **VoNR (5G Voice)**: Native voice calling over standalone 5G (SA).
+  * 📹 **Video Telephony (VT)**: Carrier ViLTE calling without third-party apps.
+  * 🔄 **Cross-SIM Calling**: Seamless Wi-Fi Calling routed through your secondary SIM's cellular data.
+  * 📡 **5G SA / NSA Modem Announcement**: Explicit baseband modem broadcast (`[1, 2]`).
+  * ⚡ **5G+ / Ultra Wideband Icon**: Enforce status bar `5G+` / `5G_UW` on C-Band and mmWave.
+  * 🎯 **5G Signal Boundary Calibration**: Fine-tune SS-RSRP threshold brackets (`[-128, -98 dBm]`).
+  * 🔤 **Status Bar Tweaks**: Display "4G" instead of "LTE", and hide the "LTE+" carrier aggregation badge.
+  * 🏷️ **Carrier Identity Overrides**: Custom carrier display name and custom IMS SIP User-Agent string.
+* **Persistent Modem NVRAM Provisioning**: Writes persistent hardware provisioning directly to device modem NVRAM via `ProvisioningManager` and `ImsMmTelManager`.
+* **Automatic Boot Restoration**: Built-in `BootReceiver` automatically reapplies your overrides whenever the device restarts—no external apps needed!
 
 ---
 
-### 7. Background App Freezer & Deep Sleep
-* **Elevated Package Suspension**: Freezes apps via `pm suspend` (instantly halts execution, greys out app icons) and restores via `pm unsuspend`.
-* **Instant Process Termination**: Force-kills background processes using elevated `am force-stop`.
-* **Auto-Freeze on Screen Off**: Automatically forces all configured battery-hog applications into deep sleep the moment the phone screen turns off.
+### 2. 🛡️ Bank Shield & Device Privacy
+> **Zero-compromise banking security, kernel-level firewall, and instant app freezing.**
+
+* **🏦 Bank Mode (Accessibility Cloak)**:
+  * *The Problem*: Banking, enterprise, and streaming apps detect running Accessibility Services and refuse to launch or block logins.
+  * *The Solution*: 1 tap snapshots all running accessibility services to secure storage, clears `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES`, and sets `accessibility_enabled 0`. When you're done banking, 1 tap restores all your services with exact configurations intact!
+  * Includes a dedicated **Quick Settings Notification Shade Tile**.
+* **🌐 NetCut (VPN-Free Per-App Firewall)**:
+  * Cut off internet access for any game, social media app, or background tracker.
+  * **No local VPN**: Saves battery and leaves your VPN slot free for real VPNs (WireGuard, Tailscale, Cloudflare WARP).
+  * **Root Mode**: Direct Linux kernel packet dropping via `iptables -I OUTPUT -m owner --uid-owner <UID> -j DROP` and `ip6tables`.
+  * **Shizuku Mode**: Strict policy isolation via `cmd netpolicy add restrict-background-blacklist <UID>` and `appops set <pkg> RUN_IN_BACKGROUND ignore`.
+* **❄️ Background App Freezer & Deep Sleep**:
+  * Silences resource-heavy apps completely using elevated package suspension (`pm suspend`) and instant process termination (`am force-stop`).
+  * **Auto-Freeze on Screen Off**: Set it once, and Autoroid automatically puts battery-draining apps into deep sleep the moment your phone screen locks.
 
 ---
 
-### 8. NetCut (Per-App Firewall)
-Block internet access for any installed app without battery-draining VPN tunnels:
-* **Root Mode (Linux Kernel Filtering)**: Drops traffic instantly via `iptables` and `ip6tables` (`OUTPUT -m owner --uid-owner <UID> -j DROP`).
-* **Shizuku Mode (NetPolicy & AppOps Isolation)**: Blocks cellular and Wi-Fi data using `cmd netpolicy add restrict-background-blacklist <UID>` and `appops set <package> RUN_IN_BACKGROUND ignore`.
+### 3. 🤖 Automations: Dynamic Workflows & Smart Triggers
+> **Build powerful app macros that run manually or trigger autonomously on hardware events.**
+
+* **Autonomous Hardware & System Event Triggers**:
+  * ⚡ **Charger Connected / 🔌 Disconnected**: Trigger bedtime or car dock routines instantly.
+  * 🔓 **Screen Unlocked / 🔒 Screen Off**: Execute actions when waking up or locking your device.
+  * 🪫 **Battery Low ($\le$ 20%)**: Automate extreme power-saving sequences.
+  * 🛜 **Wi-Fi Connected**: Fire routines when arriving home, at the office, or on specific SSIDs.
+* **Polymorphic Macro Steps**:
+  * 🚀 **`LaunchApp`**: Fast activity starts or package launcher intents.
+  * 🔍 **`SmartClickText`**: High-speed XML hierarchy inspection via `uiautomator`. Finds elements by visible text or content-description, calculates exact screen midpoints, and injects taps.
+  * 🎯 **`TapCoordinate`**: Pixel-accurate screen coordinate touch injection (`input tap X Y`).
+  * ⏱️ **`Delay`**, 👆 **`Swipe`**, and 💻 **`ShellCommand`**: Combine into flexible, powerful workflows.
+* **📍 Screen Pointer Coordinates Inspector**:
+  * 1-tap overlay showing live touch $(X, Y)$ coordinates directly on your status bar for instant macro calibration.
 
 ---
 
-### 9. Shizuku Wireless ADB Auto-Starter
-* **Automatic Port Detection**: Queries system properties (`adb.tls.port` / `service.adb.tls.port`) to detect active wireless debugging sessions.
-* **1-Tap Daemon Startup**: Launches `/data/user_de/0/moe.shizuku.privileged.api/bin/shizuku_starter` via direct Root or local shell ADB loops without needing a PC or second device.
+### 4. 💻 Console: Elevated Terminal & Shizuku Starter
+> **A dedicated power terminal and local Wireless ADB daemon starter.**
+
+* **⚡ Shizuku Wireless ADB Auto-Starter**:
+  * Automatically detects active Wireless Debugging ports (`adb.tls.port` / `service.adb.tls.port`).
+  * Launches the Shizuku server daemon in 1 tap without requiring a computer or second device.
+* **💻 Elevated Shell Terminal**:
+  * Run arbitrary shell commands with real-time streaming output.
+  * Quick-access chips for device diagnostics: `id`, `getprop`, `dumpsys telephony.registry`, `ip link`, and `iptables -L`.
 
 ---
 
-### 10. In-App Self-Update
-* Checks GitHub Releases API for new releases.
-* Displays changelogs in an interactive comparison dialog.
-* Supports **silent elevated self-update** (`pm install -r -d`) with auto-restart via Root/Shizuku, as well as standard `FileProvider` fallback.
+### 5. 🔄 Automated Scheduled SIM Data Switcher
+> **Effortlessly manage off-peak data packages across physical SIMs and eSIMs.**
+
+* **Circular 24-Hour Scheduling**: Handles arbitrary midnight rollovers (e.g. switch to SIM 2 for unlimited night data between 11:00 PM and 7:00 AM, or 12:00 AM and 9:00 AM).
+* **Exact Alarms (`AlarmManager`)**: Survives Android Deep Doze using `setExactAndAllowWhileIdle()` and wakeful alarm receivers.
+* **Survives Device Reboots**: Automatically re-registers exact alarms on `BOOT_COMPLETED`.
+* Includes a **Quick Settings Tile** for 1-tap manual SIM data switching from anywhere.
 
 ---
 
-## 📦 Building from Source
+### 6. 🚀 In-App Self-Update System
+* Automatically checks GitHub Releases for new updates.
+* **Silent 1-Click Install**: Installs updates silently via Root (`pm install -r -d`) or Shizuku streaming (`cat > /data/local/tmp/...`), and automatically restarts the app without prompting you with system installer dialogs.
+* Includes background notifications for new releases.
+
+---
+
+## 📥 Installation & Quick Start
+
+### 1. Download & Install
+Grab the latest release APK directly from GitHub:
+👉 **[Download Latest Release APK](https://github.com/ScoRpiiTech/autoroid/releases/latest)**
+
+### 2. Choose Your Elevation Mode
+
+#### Option A: With Shizuku (No Root Required)
+1. Install and open [Shizuku](https://shizuku.moe/).
+2. Enable **Wireless Debugging** in Android Developer Options.
+3. Start Shizuku (or use Autoroid's built-in **Shizuku Starter** in the Console tab!).
+4. Open Autoroid and tap **Authorize** when prompted.
+
+#### Option B: With Root (Magisk / KernelSU / APatch)
+1. Open Autoroid.
+2. Grant Superuser access when prompted.
+3. Enjoy 100% full kernel-level and system privileges instantly.
+
+---
+
+## 🛠️ Building from Source
 
 ### Prerequisites
-* JDK 17 or JDK 19
-* Android SDK (`build-tools 36.0.0`)
-* Android NDK `27.0.12077973` and CMake `3.22.1`
+* **JDK 17 or JDK 19**
+* **Android SDK** (`compileSdk = 36`, `targetSdk = 36`, `build-tools 36.0.0`)
+* **Android NDK** `27.0.12077973` and **CMake** `3.22.1`
 
 ### Build Commands
 ```bash
-# Debug Build
+# Clone the repository
+git clone https://github.com/ScoRpiiTech/autoroid.git
+cd autoroid
+
+# Set JDK environment (example for macOS)
+export JAVA_HOME="/Library/Java/JavaVirtualMachines/jdk-19.jdk/Contents/Home"
+export PATH="$JAVA_HOME/bin:$PATH"
+
+# Build Debug APK
 ./gradlew assembleDebug
 
-# Release Build
+# Build Signed Release APK
 ./gradlew assembleRelease
 # Output: app/build/outputs/apk/release/app-release.apk
 ```
 
-### Signing Configuration
-For release signing, create a `keystore.properties` file in the root directory (gitignored):
+### Release Signing
+Release builds can be signed locally by creating a `keystore.properties` file in the project root:
 ```properties
 storeFile=../your-keystore.jks
 storePassword=your_password
 keyAlias=your_alias
 keyPassword=your_password
 ```
-Or pass environment variables: `KEYSTORE_FILE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
+*(Or by providing environment variables: `KEYSTORE_FILE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`)*
+
+---
+
+## ❓ Frequently Asked Questions (FAQ)
+
+<details>
+<summary><b>Does Autoroid require Root?</b></summary>
+<p>No! Autoroid is fully functional with <b>Shizuku</b> (which only requires Wireless ADB). Carrier & IMS patching, Bank Mode, workflow macros, scheduled SIM switching, app freezing, and Shizuku starting all work over Shizuku without Root. Having Root simply unlocks additional Linux kernel capabilities like hardware <code>iptables</code> filtering.</p>
+</details>
+
+<details>
+<summary><b>Will the IMS Patcher work on my Google Pixel?</b></summary>
+<p>Yes! Autoroid features 100% parity with TensorIMS / Turbo IMS. It uses privileged instrumentation to bypass CVE-2025-48617 on Android 14, 15, and 16, restoring VoLTE, VoWiFi, and 5G VoNR in unsupported regions and on unsupported carriers.</p>
+</details>
+
+<details>
+<summary><b>Does NetCut drain my battery like VPN apps?</b></summary>
+<p>Not at all! Unlike NetGuard or other VPN-based firewalls that route all your internet traffic through a local loopback VPN process, Autoroid's NetCut uses kernel-level <code>iptables</code> (Root) or system <code>netpolicy</code> (Shizuku). Outbound packets from blocked apps are dropped immediately at the OS layer, resulting in <b>zero</b> battery or performance penalty.</p>
+</details>
+
+<details>
+<summary><b>Is Autoroid safe to use with banking apps?</b></summary>
+<p>Yes. Bank Mode was specifically engineered to bypass aggressive banking anti-fraud scanners. By temporarily wiping the active accessibility services registry, banking apps perceive your device as clean and unautomated. Once your banking session is over, 1 tap restores your services instantly.</p>
+</details>
 
 ---
 
 ## 📄 License
-This project is open-source under the Apache License 2.0.
+
+Autoroid is distributed as free and open-source software under the **Apache License 2.0**.  
+See the [LICENSE](LICENSE) file for more details.
+
+---
+
+<div align="center">
+  <sub>Engineered with ⚡ for Android power users, tinkerers, and developers worldwide.</sub><br/>
+  <b><a href="https://github.com/ScoRpiiTech/autoroid">⭐ Star Autoroid on GitHub</a></b>
+</div>
