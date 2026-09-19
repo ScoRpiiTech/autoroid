@@ -744,6 +744,7 @@
   - Dedicated visual breakdowns for each navigation space (IMS & Telephony, Bank Shield, Automations, Console).
   - Detailed FAQ section answering root requirements, Pixel IMS compatibility, and battery performance.
   - Quick-start 1-minute setup guide for Root and Shizuku users.
+* Cleaned repository `.gitignore` and migrated local environment exclusion rules to `.git/info/exclude`.
 
 
 

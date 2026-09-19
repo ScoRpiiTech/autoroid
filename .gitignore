@@ -24,9 +24,3 @@ keystore.properties
 *.key
 *.secret
 .env
-
-# Agent & Session Directives (Kept local, hidden from public repo)
-AGENTS.md
-GEMINI.md
-.agent/
-.agent*
