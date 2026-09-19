@@ -745,13 +745,6 @@
   - Detailed FAQ section answering root requirements, Pixel IMS compatibility, and battery performance.
 * Cleaned repository `.gitignore` and migrated local environment exclusion rules to `.git/info/exclude`.
 
-### 7. Modern State-of-the-Art Landing Page (`website/`)
-* Built a standalone, responsive, cyber-glassmorphic landing page targeting the Pakistani Google Pixel community and global Android power users:
-  - **`website/index.html`**: Hero banner with live download button, Pakistani cellular carrier compatibility matrix (Jazz, Zong, Ufone, Telenor), feature breakdown cards, 3-step setup guide with interactive Shizuku vs Root tabs, supported Pixel devices grid (Pixel 6 through Pixel 9 Pro Fold), and comprehensive FAQ accordion.
-  - **`website/styles.css`**: Obsidian cyber dark theme with ambient cyan, emerald, and purple radial glows, glassmorphism cards (`backdrop-filter: blur(20px)`), glowing action buttons, and mobile-first responsiveness.
-  - **`website/app.js`**: Asynchronous GitHub Releases API client automatically querying the latest release tag, APK asset, and file size to power direct 1-tap downloads.
-  - **`website/CNAME`**: Preconfigured for custom domain deployment at `autoroid.scorpiitech.com`.
-
 
 
 

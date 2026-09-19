@@ -24,3 +24,4 @@ keystore.properties
 *.key
 *.secret
 .env
+website/
