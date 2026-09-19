@@ -59,11 +59,27 @@ import com.autoroid.app.ui.theme.TextMuted
 import com.autoroid.app.ui.theme.TextPrimary
 import com.autoroid.app.ui.theme.TextSecondary
 
+import com.autoroid.app.feature.freezer.model.FrozenApp
+import com.autoroid.app.feature.freezer.ui.AppFreezerCard
+import com.autoroid.app.feature.netcut.model.NetCutApp
+import com.autoroid.app.feature.netcut.ui.NetCutCard
+
 @Composable
 fun ShieldScreenView(
     isActive: Boolean,
     activeServices: List<String>,
     pausedServices: List<String>,
+    frozenApps: List<FrozenApp>,
+    isFreezerBusy: Boolean,
+    onFreezeApp: (String) -> Unit,
+    onUnfreezeApp: (String) -> Unit,
+    onSetAutoFreeze: (String, Boolean) -> Unit,
+    onLaunchApp: (String) -> Unit,
+    onRefreshFreezer: () -> Unit,
+    netCutApps: List<NetCutApp>,
+    isNetCutBusy: Boolean,
+    onToggleNetCut: (String, Boolean) -> Unit,
+    onRefreshNetCut: () -> Unit,
     onToggle: () -> Unit,
     onHelpClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -404,6 +420,29 @@ fun ShieldScreenView(
                     }
                 }
             }
+        }
+
+        // App Freezer & Deep Sleep
+        item {
+            AppFreezerCard(
+                apps = frozenApps,
+                isBusy = isFreezerBusy,
+                onFreezeApp = onFreezeApp,
+                onUnfreezeApp = onUnfreezeApp,
+                onSetAutoFreeze = onSetAutoFreeze,
+                onLaunchApp = onLaunchApp,
+                onRefresh = onRefreshFreezer
+            )
+        }
+
+        // NetCut Firewall
+        item {
+            NetCutCard(
+                apps = netCutApps,
+                isBusy = isNetCutBusy,
+                onToggleBlock = onToggleNetCut,
+                onRefresh = onRefreshNetCut
+            )
         }
 
         item {

@@ -9,6 +9,7 @@ data class Workflow(
     val name: String,
     val description: String = "",
     val steps: List<WorkflowStep> = emptyList(),
+    val triggers: List<WorkflowTrigger> = emptyList(),
     val createdAt: Long = System.currentTimeMillis()
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
@@ -22,6 +23,12 @@ data class Workflow(
             stepsArray.put(step.toJson())
         }
         put("steps", stepsArray)
+
+        val triggersArray = JSONArray()
+        triggers.forEach { trigger ->
+            triggersArray.put(trigger.toJson())
+        }
+        put("triggers", triggersArray)
     }
 
     companion object {
@@ -37,11 +44,23 @@ data class Workflow(
                 }
             }
 
+            val triggersList = mutableListOf<WorkflowTrigger>()
+            val triggersArray = json.optJSONArray("triggers")
+            if (triggersArray != null) {
+                for (i in 0 until triggersArray.length()) {
+                    val triggerObj = triggersArray.optJSONObject(i)
+                    if (triggerObj != null) {
+                        WorkflowTrigger.parse(triggerObj)?.let { triggersList.add(it) }
+                    }
+                }
+            }
+
             return Workflow(
                 id = json.optString("id", UUID.randomUUID().toString()),
                 name = json.optString("name", "Untitled Workflow"),
                 description = json.optString("description", ""),
                 steps = stepsList,
+                triggers = triggersList,
                 createdAt = json.optLong("createdAt", System.currentTimeMillis())
             )
         }

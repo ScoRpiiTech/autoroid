@@ -16,8 +16,11 @@ Unlike conventional automation apps that rely on brittle Accessibility service o
 3. **Carrier & IMS Patcher (Turbo IMS Parity)**: Complete elevated carrier configuration override engine for Google Pixel and modern Android devices, unlocking VoLTE, VoWiFi, VoNR 5G, 5G+ Ultra Wideband, Cross-SIM calling, and custom carrier branding.
 4. **Dynamic Bank Mode**: Snapshot and restore system accessibility registries on-the-fly to bypass aggressive anti-automation detection in modern banking and enterprise apps.
 5. **Scheduled SIM Data Switcher**: Exact-alarm automated SIM data switching for off-peak night packages with seamless midnight rollover and persistent boot restoration.
-6. **Any-App Workflow Engine**: Multi-step macro engine supporting Smart UI Clicks (text/content-desc via `uiautomator`), coordinate tapping, swipe gestures, app launch intents, delays, and elevated shell commands.
-7. **In-App Self-Update System**: Integrated with GitHub Releases for 1-click elevated silent self-installation.
+6. **Smart Event Triggers & Any-App Workflow Engine**: Multi-step macro engine supporting Smart UI Clicks, coordinate tapping, gestures, and autonomous event triggers (Charger plug/unplug, Screen lock/unlock, Low battery, Wi-Fi connected).
+7. **Background App Freezer & Deep Sleep**: Elevated package suspension (`pm suspend`) and process termination (`am force-stop`) with automatic Screen-Off Deep Sleep.
+8. **NetCut (Per-App Firewall)**: Kernel-level (`iptables`) and policy-level (`netpolicy`) internet blocking without local VPN tunnels.
+9. **Shizuku Wireless ADB Auto-Starter**: Automatic port detection and 1-tap local daemon startup.
+10. **In-App Self-Update System**: Integrated with GitHub Releases for 1-click elevated silent self-installation.
 
 ---
 
@@ -90,17 +93,43 @@ Automate SIM line switching for off-peak night packages without draining battery
 
 ---
 
-### 6. Any-App Workflow Engine
-Create, edit, reorder, and execute dynamic multi-step automations:
-* `LaunchApp`: Elevated activity start or launcher intent.
-* `SmartClickText`: Fast XML UI dump parser that locates elements by text or content-description and injects center taps.
-* `TapCoordinate`: Direct coordinate touch injection (`input tap X Y`).
-* `PointerLocation`: Built-in real-time $(X, Y)$ screen coordinate inspector overlay.
-* `Delay`, `Swipe`, and `ShellCommand`: Flexible macro building blocks.
+### 6. Dynamic Workflow Engine & Smart Event Triggers
+Create, edit, reorder, and execute dynamic multi-step automations manually or autonomously:
+* **Polymorphic Step Types**:
+  - `LaunchApp`: Elevated activity start or launcher intent.
+  - `SmartClickText`: Fast XML UI dump parser that locates elements by text or content-description and injects center taps.
+  - `TapCoordinate`: Direct coordinate touch injection (`input tap X Y`).
+  - `PointerLocation`: Built-in real-time $(X, Y)$ screen coordinate inspector overlay.
+  - `Delay`, `Swipe`, and `ShellCommand`: Flexible macro building blocks.
+* **Autonomous Smart Event Triggers**:
+  - **Charger Connected / Disconnected**: Trigger routines upon docking or leaving chargers.
+  - **Screen Unlocked / Off**: Automatically run macros when locking or unlocking the phone.
+  - **Low Battery ($\le$ 20%)**: Trigger power-saving routines and alerts.
+  - **Wi-Fi Connected**: Fire automations whenever the device associates with Wi-Fi.
 
 ---
 
-### 7. In-App Self-Update
+### 7. Background App Freezer & Deep Sleep
+* **Elevated Package Suspension**: Freezes apps via `pm suspend` (instantly halts execution, greys out app icons) and restores via `pm unsuspend`.
+* **Instant Process Termination**: Force-kills background processes using elevated `am force-stop`.
+* **Auto-Freeze on Screen Off**: Automatically forces all configured battery-hog applications into deep sleep the moment the phone screen turns off.
+
+---
+
+### 8. NetCut (Per-App Firewall)
+Block internet access for any installed app without battery-draining VPN tunnels:
+* **Root Mode (Linux Kernel Filtering)**: Drops traffic instantly via `iptables` and `ip6tables` (`OUTPUT -m owner --uid-owner <UID> -j DROP`).
+* **Shizuku Mode (NetPolicy & AppOps Isolation)**: Blocks cellular and Wi-Fi data using `cmd netpolicy add restrict-background-blacklist <UID>` and `appops set <package> RUN_IN_BACKGROUND ignore`.
+
+---
+
+### 9. Shizuku Wireless ADB Auto-Starter
+* **Automatic Port Detection**: Queries system properties (`adb.tls.port` / `service.adb.tls.port`) to detect active wireless debugging sessions.
+* **1-Tap Daemon Startup**: Launches `/data/user_de/0/moe.shizuku.privileged.api/bin/shizuku_starter` via direct Root or local shell ADB loops without needing a PC or second device.
+
+---
+
+### 10. In-App Self-Update
 * Checks GitHub Releases API for new releases.
 * Displays changelogs in an interactive comparison dialog.
 * Supports **silent elevated self-update** (`pm install -r -d`) with auto-restart via Root/Shizuku, as well as standard `FileProvider` fallback.

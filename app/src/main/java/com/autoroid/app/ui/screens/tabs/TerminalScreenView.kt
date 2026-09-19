@@ -63,11 +63,18 @@ import com.autoroid.app.ui.theme.TextMuted
 import com.autoroid.app.ui.theme.TextPrimary
 import com.autoroid.app.ui.theme.TextSecondary
 
+import com.autoroid.app.feature.shizuku.ui.ShizukuStarterCard
+
 @Composable
 fun TerminalScreenView(
     privilegeLevel: PrivilegeLevel,
     nativeVer: String,
     logs: List<String>,
+    isShizukuRunning: Boolean,
+    isShizukuInstalled: Boolean,
+    wirelessAdbPort: Int?,
+    onStartShizuku: () -> Unit,
+    onOpenShizuku: () -> Unit,
     onExecuteCommand: (String) -> Unit,
     onClearLogs: () -> Unit,
     onRequestShizuku: () -> Unit,
@@ -186,6 +193,17 @@ fun TerminalScreenView(
                     }
                 }
             }
+        }
+
+        // Shizuku Auto-Starter Assistant
+        item {
+            ShizukuStarterCard(
+                isRunning = isShizukuRunning,
+                isInstalled = isShizukuInstalled,
+                wirelessAdbPort = wirelessAdbPort,
+                onStartShizuku = onStartShizuku,
+                onOpenShizuku = onOpenShizuku
+            )
         }
 
         // Command Runner Input

@@ -46,6 +46,18 @@ class MainViewModel : ViewModel() {
     val updateStatus: StateFlow<com.autoroid.app.feature.update.model.UpdateStatus> = updateManager.updateStatus
     val currentVersion: String = updateManager.currentVersion
 
+    private val appFreezerManager = AutoroidApp.instance.appFreezerManager
+    val frozenApps: StateFlow<List<com.autoroid.app.feature.freezer.model.FrozenApp>> = appFreezerManager.installedApps
+    val isFreezerBusy: StateFlow<Boolean> = appFreezerManager.isBusy
+
+    private val netCutManager = AutoroidApp.instance.netCutManager
+    val netCutApps: StateFlow<List<com.autoroid.app.feature.netcut.model.NetCutApp>> = netCutManager.apps
+    val isNetCutBusy: StateFlow<Boolean> = netCutManager.isBusy
+
+    private val shizukuStarterManager = AutoroidApp.instance.shizukuStarterManager
+    val isShizukuDaemonRunning: StateFlow<Boolean> = shizukuStarterManager.isRunning
+    val wirelessAdbPort: StateFlow<Int?> = shizukuStarterManager.wirelessAdbPort
+
     private val _nativeVersion = MutableStateFlow("Initializing...")
     val nativeVersion: StateFlow<String> = _nativeVersion.asStateFlow()
 
@@ -381,6 +393,96 @@ class MainViewModel : ViewModel() {
             log("Downloading update from GitHub: ${info.latestVersion}...")
             updateManager.downloadAndInstall(info)
         }
+    }
+
+    // App Freezer actions
+    fun freezeApp(packageName: String) {
+        viewModelScope.launch {
+            log("Freezing app: $packageName...")
+            val success = appFreezerManager.freezeApp(packageName)
+            if (success) {
+                _uiEvent.emit("❄️ Suspended and stopped $packageName")
+                log("App $packageName frozen successfully.")
+            } else {
+                _uiEvent.emit("⚠️ Failed freezing $packageName")
+            }
+        }
+    }
+
+    fun unfreezeApp(packageName: String) {
+        viewModelScope.launch {
+            log("Unfreezing app: $packageName...")
+            val success = appFreezerManager.unfreezeApp(packageName)
+            if (success) {
+                _uiEvent.emit("🟢 Restored $packageName")
+                log("App $packageName unfrozen.")
+            } else {
+                _uiEvent.emit("⚠️ Failed unfreezing $packageName")
+            }
+        }
+    }
+
+    fun setAutoFreeze(packageName: String, enabled: Boolean) {
+        appFreezerManager.setAutoFreeze(packageName, enabled)
+        log("Auto-freeze for $packageName: $enabled")
+    }
+
+    fun launchApp(packageName: String) {
+        viewModelScope.launch {
+            appFreezerManager.launchApp(packageName)
+        }
+    }
+
+    fun refreshFreezerApps() {
+        viewModelScope.launch {
+            appFreezerManager.refreshApps()
+        }
+    }
+
+    // NetCut Firewall actions
+    fun setInternetBlocked(packageName: String, blocked: Boolean) {
+        viewModelScope.launch {
+            log("NetCut: ${if (blocked) "Cutting" else "Restoring"} internet for $packageName...")
+            val success = netCutManager.setInternetBlocked(packageName, blocked)
+            if (success) {
+                val msg = if (blocked) "🚫 Cut internet for $packageName" else "🌐 Restored internet for $packageName"
+                _uiEvent.emit(msg)
+                log(msg)
+            } else {
+                _uiEvent.emit("⚠️ NetCut rule failed for $packageName")
+            }
+        }
+    }
+
+    fun refreshNetCutApps() {
+        viewModelScope.launch {
+            netCutManager.refreshApps()
+        }
+    }
+
+    // Shizuku Auto-Starter actions
+    fun startShizukuDaemon() {
+        viewModelScope.launch {
+            log("Starting Shizuku daemon...")
+            _isBusy.value = true
+            val success = shizukuStarterManager.startShizuku()
+            if (success) {
+                _uiEvent.emit("⚡ Shizuku daemon started successfully!")
+                log("Shizuku daemon started.")
+                refreshAll()
+            } else {
+                _uiEvent.emit("ℹ️ Launched Shizuku manager to start via Wireless ADB")
+            }
+            _isBusy.value = false
+        }
+    }
+
+    fun openShizukuApp() {
+        shizukuStarterManager.openShizukuApp()
+    }
+
+    fun isShizukuInstalled(): Boolean {
+        return shizukuStarterManager.isShizukuInstalled()
     }
 
     fun clearConsoleLogs() {

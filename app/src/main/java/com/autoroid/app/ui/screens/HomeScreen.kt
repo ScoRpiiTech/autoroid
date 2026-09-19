@@ -108,6 +108,13 @@ fun HomeScreen(
     val isPointerLocationActive by viewModel.isPointerLocationActive.collectAsState()
     val updateStatus by viewModel.updateStatus.collectAsState()
 
+    val frozenApps by viewModel.frozenApps.collectAsState()
+    val isFreezerBusy by viewModel.isFreezerBusy.collectAsState()
+    val netCutApps by viewModel.netCutApps.collectAsState()
+    val isNetCutBusy by viewModel.isNetCutBusy.collectAsState()
+    val isShizukuDaemonRunning by viewModel.isShizukuDaemonRunning.collectAsState()
+    val wirelessAdbPort by viewModel.wirelessAdbPort.collectAsState()
+
     val snackbarHostState = remember { SnackbarHostState() }
     var activeHelpType by remember { mutableStateOf<FeatureHelpType?>(null) }
 
@@ -316,6 +323,17 @@ fun HomeScreen(
                                 isActive = isBankModeActive,
                                 activeServices = activeServices,
                                 pausedServices = pausedServices,
+                                frozenApps = frozenApps,
+                                isFreezerBusy = isFreezerBusy,
+                                onFreezeApp = { viewModel.freezeApp(it) },
+                                onUnfreezeApp = { viewModel.unfreezeApp(it) },
+                                onSetAutoFreeze = { pkg, enabled -> viewModel.setAutoFreeze(pkg, enabled) },
+                                onLaunchApp = { viewModel.launchApp(it) },
+                                onRefreshFreezer = { viewModel.refreshFreezerApps() },
+                                netCutApps = netCutApps,
+                                isNetCutBusy = isNetCutBusy,
+                                onToggleNetCut = { pkg, blocked -> viewModel.setInternetBlocked(pkg, blocked) },
+                                onRefreshNetCut = { viewModel.refreshNetCutApps() },
                                 onToggle = { viewModel.toggleBankMode() },
                                 onHelpClick = { activeHelpType = FeatureHelpType.BANK_MODE }
                             )
@@ -341,6 +359,11 @@ fun HomeScreen(
                                 privilegeLevel = privilegeLevel,
                                 nativeVer = nativeVer,
                                 logs = logs,
+                                isShizukuRunning = isShizukuDaemonRunning,
+                                isShizukuInstalled = viewModel.isShizukuInstalled(),
+                                wirelessAdbPort = wirelessAdbPort,
+                                onStartShizuku = { viewModel.startShizukuDaemon() },
+                                onOpenShizuku = { viewModel.openShizukuApp() },
                                 onExecuteCommand = { viewModel.executeCustomCommand(it) },
                                 onClearLogs = { viewModel.clearConsoleLogs() },
                                 onRequestShizuku = onRequestShizuku,

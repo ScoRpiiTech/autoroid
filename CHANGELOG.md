@@ -696,5 +696,47 @@
 * Compiled with JDK 19, AGP 8.6.0, Target SDK 36.
 * Verified release APK with `apksigner` (APK Signature Scheme v3).
 
+---
+
+## [v1.3.0] - Autoroid Power Suite: Smart Event Triggers, Background App Freezer, NetCut Firewall & Shizuku Wireless ADB Starter
+* **Date:** 2026-09-20
+* **Status:** Verified (Build Successful, Release APK Signed & Scheme v3 Verified)
+
+### 1. Smart Event Triggers for Workflows (`feature/workflow/trigger`)
+* **`WorkflowTrigger.kt`**: Polymorphic trigger system allowing automations to execute autonomously in the background without user intervention:
+  - `PowerConnected` & `PowerDisconnected`: Responds to battery charger plug/unplug events.
+  - `ScreenUnlocked` & `ScreenOff`: Reacts to device lock/unlock transitions.
+  - `BatteryLow`: Triggers when battery level drops to threshold (default $\le$ 20%).
+  - `WifiConnected`: Detects Wi-Fi association (all networks or specific SSID).
+* **`WorkflowTriggerManager.kt`**: Dynamic broadcast listener and coordinator. Continuously evaluates incoming system events against configured workflow triggers and schedules execution via `WorkflowRunner.executeWorkflow()`.
+* **Workflow UI Expansion (`WorkflowCard.kt`, `WorkflowEditorDialog.kt`)**: Added trigger configuration UI with quick trigger dropdown, live trigger badges, and persistent trigger list serialization in `autoroid_workflows.json`.
+
+### 2. Background App Freezer & Deep Sleep (`feature/freezer`)
+* **`FrozenApp.kt` & `AppFreezerRepository.kt`**: Model and persistent configuration storage for managed apps.
+* **`AppFreezerManager.kt`**:
+  - Elevated app suspension via `pm suspend` / `pm unsuspend` and process termination (`am force-stop`).
+  - Auto-freeze on screen off: When the display turns off, Autoroid automatically executes deep sleep force-stops and suspensions on designated background battery-drain apps.
+* **`AppFreezerCard.kt`**: Integrated into Bank Shield tab with package search, quick freeze toggles, instant kill buttons, and auto-freeze configuration.
+
+### 3. NetCut Per-App Firewall (`feature/netcut`)
+* **`NetCutApp.kt` & `NetCutRepository.kt`**: Internet rule tracking per application.
+* **`NetCutManager.kt`**:
+  - Kernel-level IP filtering (`iptables` and `ip6tables` `OUTPUT -m owner --uid-owner <UID> -j DROP`) under Root.
+  - Strict network policy isolation (`cmd netpolicy add restrict-background-blacklist <UID>` and `appops set <package> RUN_IN_BACKGROUND ignore`) under Shizuku/ADB.
+  - Cuts off selected apps from cellular and Wi-Fi data completely without needing a battery-draining local VPN tunnel.
+* **`NetCutCard.kt`**: Cyberpunk per-app internet toggle card embedded in the Shield tab.
+
+### 4. Shizuku Wireless ADB Auto-Starter (`feature/shizuku`)
+* **`ShizukuStarterManager.kt`**:
+  - Detects active wireless debugging ports (`adb.tls.port` / `service.adb.tls.port`).
+  - Launches the Shizuku server daemon (`/data/user_de/0/moe.shizuku.privileged.api/bin/shizuku_starter`) in 1 tap via Root or local shell ADB loops.
+  - Provides instant status diagnostics and manual port connection fallback.
+* **`ShizukuStarterCard.kt`**: Integrated into the Console tab for rapid privileged daemon recovery.
+
+### 5. Build & Verification
+* Bumped `versionCode = 20` and `versionName = "1.3.0"`.
+* Verified release APK with `apksigner` (APK Signature Scheme v3).
+
+
 
 

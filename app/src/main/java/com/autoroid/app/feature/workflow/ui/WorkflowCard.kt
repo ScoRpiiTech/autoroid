@@ -120,6 +120,29 @@ fun WorkflowCard(
                             }
                         }
                     }
+                    if (workflow.triggers.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            workflow.triggers.forEach { trigger ->
+                                Surface(
+                                    color = NeonGreen.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(6.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, NeonGreen.copy(alpha = 0.35f))
+                                ) {
+                                    Text(
+                                        text = trigger.displaySummary,
+                                        fontSize = 10.sp,
+                                        color = NeonGreen,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {

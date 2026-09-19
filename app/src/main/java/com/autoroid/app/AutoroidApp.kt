@@ -30,6 +30,9 @@ class AutoroidApp : Application() {
     lateinit var pointerLocationHelper: com.autoroid.app.feature.workflow.runner.PointerLocationHelper
         private set
 
+    lateinit var workflowTriggerManager: com.autoroid.app.feature.workflow.trigger.WorkflowTriggerManager
+        private set
+
     lateinit var updateManager: com.autoroid.app.feature.update.UpdateManager
         private set
 
@@ -43,6 +46,21 @@ class AutoroidApp : Application() {
         private set
 
     lateinit var imsController: com.autoroid.app.feature.telephony.ims.ImsController
+        private set
+
+    lateinit var appFreezerRepository: com.autoroid.app.feature.freezer.repository.AppFreezerRepository
+        private set
+
+    lateinit var appFreezerManager: com.autoroid.app.feature.freezer.AppFreezerManager
+        private set
+
+    lateinit var netCutRepository: com.autoroid.app.feature.netcut.repository.NetCutRepository
+        private set
+
+    lateinit var netCutManager: com.autoroid.app.feature.netcut.NetCutManager
+        private set
+
+    lateinit var shizukuStarterManager: com.autoroid.app.feature.shizuku.ShizukuStarterManager
         private set
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -70,6 +88,21 @@ class AutoroidApp : Application() {
         )
         workflowRepository = com.autoroid.app.feature.workflow.repository.WorkflowRepository(this)
         workflowRunner = com.autoroid.app.feature.workflow.runner.WorkflowRunner(this, privilegeManager)
+        workflowTriggerManager = com.autoroid.app.feature.workflow.trigger.WorkflowTriggerManager(
+            this,
+            workflowRepository,
+            workflowRunner
+        )
+        workflowTriggerManager.startListening()
+
+        appFreezerRepository = com.autoroid.app.feature.freezer.repository.AppFreezerRepository(this)
+        appFreezerManager = com.autoroid.app.feature.freezer.AppFreezerManager(this, appFreezerRepository, privilegeManager)
+
+        netCutRepository = com.autoroid.app.feature.netcut.repository.NetCutRepository(this)
+        netCutManager = com.autoroid.app.feature.netcut.NetCutManager(this, netCutRepository, privilegeManager)
+
+        shizukuStarterManager = com.autoroid.app.feature.shizuku.ShizukuStarterManager(this, privilegeManager)
+
         pointerLocationHelper = com.autoroid.app.feature.workflow.runner.PointerLocationHelper(privilegeManager)
         updateManager = com.autoroid.app.feature.update.UpdateManager(this, privilegeManager)
 
@@ -99,6 +132,26 @@ class AutoroidApp : Application() {
                 imsController.onBoot()
             } catch (t: Throwable) {
                 android.util.Log.w("AutoroidApp", "ImsController onBoot note: ${t.message}")
+            }
+            try {
+                netCutManager.onBoot()
+            } catch (t: Throwable) {
+                android.util.Log.w("AutoroidApp", "NetCutManager onBoot note: ${t.message}")
+            }
+            try {
+                shizukuStarterManager.refreshStatus()
+            } catch (t: Throwable) {
+                android.util.Log.w("AutoroidApp", "ShizukuStarterManager refresh note: ${t.message}")
+            }
+            try {
+                appFreezerManager.refreshApps()
+            } catch (t: Throwable) {
+                android.util.Log.w("AutoroidApp", "AppFreezerManager refresh note: ${t.message}")
+            }
+            try {
+                netCutManager.refreshApps()
+            } catch (t: Throwable) {
+                android.util.Log.w("AutoroidApp", "NetCutManager refresh note: ${t.message}")
             }
             try {
                 workflowRepository.initialize()

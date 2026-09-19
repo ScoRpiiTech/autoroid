@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.autoroid.app.feature.workflow.model.Workflow
 import com.autoroid.app.feature.workflow.model.WorkflowStep
+import com.autoroid.app.feature.workflow.model.WorkflowTrigger
 import com.autoroid.app.ui.theme.CardBorder
 import com.autoroid.app.ui.theme.CardSurface
 import com.autoroid.app.ui.theme.CyberCyan
@@ -66,6 +67,11 @@ fun WorkflowEditorDialog(
     val steps = remember {
         mutableStateListOf<WorkflowStep>().apply {
             initialWorkflow?.steps?.let { addAll(it) }
+        }
+    }
+    val triggers = remember {
+        mutableStateListOf<WorkflowTrigger>().apply {
+            initialWorkflow?.triggers?.let { addAll(it) }
         }
     }
 
@@ -225,6 +231,136 @@ fun WorkflowEditorDialog(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Triggers Section
+                var showTriggerMenu by remember { mutableStateOf(false) }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "EVENT TRIGGERS (${triggers.size})",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = com.autoroid.app.ui.theme.NeonGreen
+                    )
+
+                    Row {
+                        OutlinedButton(
+                            onClick = { showTriggerMenu = true },
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = com.autoroid.app.ui.theme.NeonGreen)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Add Trigger", color = com.autoroid.app.ui.theme.NeonGreen, fontSize = 12.sp)
+                        }
+
+                        DropdownMenu(
+                            expanded = showTriggerMenu,
+                            onDismissRequest = { showTriggerMenu = false },
+                            modifier = Modifier.background(CardSurface)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("⚡ Charger Connected", color = TextPrimary) },
+                                onClick = {
+                                    showTriggerMenu = false
+                                    if (!triggers.any { it is com.autoroid.app.feature.workflow.model.WorkflowTrigger.PowerConnected }) {
+                                        triggers.add(com.autoroid.app.feature.workflow.model.WorkflowTrigger.PowerConnected)
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("🔌 Charger Unplugged", color = TextPrimary) },
+                                onClick = {
+                                    showTriggerMenu = false
+                                    if (!triggers.any { it is com.autoroid.app.feature.workflow.model.WorkflowTrigger.PowerDisconnected }) {
+                                        triggers.add(com.autoroid.app.feature.workflow.model.WorkflowTrigger.PowerDisconnected)
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("🔓 Screen Unlocked", color = TextPrimary) },
+                                onClick = {
+                                    showTriggerMenu = false
+                                    if (!triggers.any { it is com.autoroid.app.feature.workflow.model.WorkflowTrigger.ScreenUnlocked }) {
+                                        triggers.add(com.autoroid.app.feature.workflow.model.WorkflowTrigger.ScreenUnlocked)
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("🔒 Screen Turned Off", color = TextPrimary) },
+                                onClick = {
+                                    showTriggerMenu = false
+                                    if (!triggers.any { it is com.autoroid.app.feature.workflow.model.WorkflowTrigger.ScreenOff }) {
+                                        triggers.add(com.autoroid.app.feature.workflow.model.WorkflowTrigger.ScreenOff)
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("🪫 Battery <= 20%", color = TextPrimary) },
+                                onClick = {
+                                    showTriggerMenu = false
+                                    if (!triggers.any { it is com.autoroid.app.feature.workflow.model.WorkflowTrigger.BatteryLow }) {
+                                        triggers.add(com.autoroid.app.feature.workflow.model.WorkflowTrigger.BatteryLow(20))
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("🛜 Any Wi-Fi Connected", color = TextPrimary) },
+                                onClick = {
+                                    showTriggerMenu = false
+                                    if (!triggers.any { it is com.autoroid.app.feature.workflow.model.WorkflowTrigger.WifiConnected }) {
+                                        triggers.add(com.autoroid.app.feature.workflow.model.WorkflowTrigger.WifiConnected())
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                if (triggers.isEmpty()) {
+                    Text(
+                        text = "No automatic triggers attached. Runs manually.",
+                        fontSize = 11.sp,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(start = 2.dp)
+                    )
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        triggers.forEachIndexed { index, trigger ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(DeepBackground)
+                                    .border(1.dp, CardBorder, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = trigger.displaySummary,
+                                    fontSize = 11.sp,
+                                    color = com.autoroid.app.ui.theme.NeonGreen,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                IconButton(
+                                    onClick = { triggers.removeAt(index) },
+                                    modifier = Modifier.size(22.dp)
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Remove", tint = NeonRed, modifier = Modifier.size(15.dp))
+                                }
+                            }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -236,6 +372,7 @@ fun WorkflowEditorDialog(
                             name = name.trim(),
                             description = description.trim(),
                             steps = steps.toList(),
+                            triggers = triggers.toList(),
                             createdAt = initialWorkflow?.createdAt ?: System.currentTimeMillis()
                         )
                         onSave(workflow)

@@ -113,21 +113,47 @@ Whenever a version tag (`v*`) is pushed:
    - `Delay(durationMs)`: Coroutine delay for UI painting.
    - `Swipe(startX, startY, endX, endY, durationMs)`: Gestural inputs.
    - `ShellCommand(command)`: Arbitrary elevated shell scripts.
-2. **Execution Runner (`runner/WorkflowRunner.kt`)**:
+2. **Smart Event Triggers (`trigger/WorkflowTrigger.kt` & `trigger/WorkflowTriggerManager.kt`)**:
+   - Background event monitor listening for battery charger connect/disconnect, screen unlocked/off, battery $\le$ 20%, and Wi-Fi network association.
+   - Dispatches matching macros directly into `WorkflowRunner.executeWorkflow()` without manual triggers.
+3. **Execution Runner (`runner/WorkflowRunner.kt`)**:
    - Sequential step execution on `Dispatchers.IO`.
    - Exposes reactive `ExecutionState` with step progress and status messaging.
-3. **Screen Coordinates Inspector (`runner/PointerLocationHelper.kt`)**:
+4. **Screen Coordinates Inspector (`runner/PointerLocationHelper.kt`)**:
    - Toggles `settings put system pointer_location 1/0`.
    - Overlays real-time $(X, Y)$ touch coordinates in the Android status bar.
-4. **Storage (`repository/WorkflowRepository.kt`)**:
+5. **Storage (`repository/WorkflowRepository.kt`)**:
    - Reads/writes `autoroid_workflows.json` in `context.filesDir`.
    - Pre-seeds "Samsung Health: Start Running", "Force Stop App Macro", and "Quick Screen Tap Macro".
-5. **UI Components (`ui/`)**:
-   - `WorkflowCard`: Live execution cards with expandable step details.
-   - `WorkflowEditorDialog`: Step builder, reorder, delete, and configure.
+6. **UI Components (`ui/`)**:
+   - `WorkflowCard`: Live execution cards with expandable step details and trigger badges.
+   - `WorkflowEditorDialog`: Step builder, event triggers dropdown, reorder, delete, and configure.
    - `AppPickerDialog`: Searchable installed apps selector.
 
-### E. In-App Self-Update System (`app/src/main/java/com/autoroid/app/feature/update`)
+### E. Background App Freezer & Deep Sleep (`app/src/main/java/com/autoroid/app/feature/freezer`)
+* **`FrozenApp.kt` & `AppFreezerRepository.kt`**: Managed app model and JSON persistence in SharedPreferences.
+* **`AppFreezerManager.kt`**:
+  - Suspends packages via `pm suspend` (disables execution and greys out launcher icon) and restores via `pm unsuspend`.
+  - Terminates running processes instantly via elevated `am force-stop`.
+  - **Auto-Freeze on Screen Off**: Hooks into display power state broadcast to automatically freeze battery-draining apps when the user locks their device.
+* **`AppFreezerCard.kt`**: Cyberpunk card in Shield tab with search, quick toggle, instant kill, and auto-freeze switch.
+
+### F. NetCut Per-App Firewall (`app/src/main/java/com/autoroid/app/feature/netcut`)
+* **`NetCutApp.kt` & `NetCutRepository.kt`**: Blocklist data model and SharedPreferences persistence.
+* **`NetCutManager.kt`**:
+  - VPN-less internet blocking at the Linux kernel level.
+  - **Root mode**: Uses `iptables` and `ip6tables` (`OUTPUT -m owner --uid-owner <UID> -j DROP`) for complete network isolation.
+  - **Shizuku mode**: Enforces strict policy-level blocking via `cmd netpolicy add restrict-background-blacklist <UID>` and `appops set <package> RUN_IN_BACKGROUND ignore`.
+* **`NetCutCard.kt`**: Embedded card in Shield tab with app search, instant cut switch, and clear blocked apps counter.
+
+### G. Shizuku Wireless ADB Auto-Starter (`app/src/main/java/com/autoroid/app/feature/shizuku`)
+* **`ShizukuStarterManager.kt`**:
+  - Automatically queries active TLS ADB ports via system properties (`adb.tls.port`, `service.adb.tls.port`).
+  - Launches Shizuku daemon via direct root `/data/user_de/0/moe.shizuku.privileged.api/bin/shizuku_starter` or local shell loops.
+  - Provides diagnostic logs and manual port fallback.
+* **`ShizukuStarterCard.kt`**: Privileged daemon starter in Console tab.
+
+### H. In-App Self-Update System (`app/src/main/java/com/autoroid/app/feature/update`)
 1. **GitHub Releases Client (`UpdateManager.kt`)**:
    - Queries `https://api.github.com/repos/ScoRpiiTech/autoroid/releases/latest`.
    - Parses semver release tags, markdown notes, and APK assets.
@@ -146,7 +172,7 @@ Whenever a version tag (`v*`) is pushed:
     - `UpdateBannerCard.kt`: Dynamic banner displaying version, notes, download progress, and contextual 1-tap install.
     - `UpdateStatusDialog.kt`: Modal comparison grid, release changelog viewer, and live download/install spinner.
 
-### F. Interactive Feedback & Feature Guidance (`app/src/main/java/com/autoroid/app/ui`)
+### I. Interactive Feedback & Feature Guidance (`app/src/main/java/com/autoroid/app/ui`)
 1. **Reactive UI Event Channel (`MainViewModel.kt`)**:
    - `_uiEvent = MutableSharedFlow<String>()` delivering real-time user-facing status feedback.
    - Pops Snackbars on the screen for every tap (e.g., privilege warnings, Bank Mode state changes, SIM switch results, workflow steps).
@@ -194,6 +220,26 @@ Whenever a version tag (`v*`) is pushed:
 │       │   ├── feature/
 │       │   │   ├── accessibility/
 │       │   │   │   └── AccessibilityController.kt # Bank Mode
+│       │   │   ├── freezer/
+│       │   │   │   ├── AppFreezerManager.kt       # Elevated pm suspend & am force-stop coordinator
+│       │   │   │   ├── model/
+│       │   │   │   │   └── FrozenApp.kt           # Frozen app model
+│       │   │   │   ├── repository/
+│       │   │   │   │   └── AppFreezerRepository.kt# Persistent preferences storage
+│       │   │   │   └── ui/
+│       │   │   │       └── AppFreezerCard.kt      # App freezer management card
+│       │   │   ├── netcut/
+│       │   │   │   ├── NetCutManager.kt           # Kernel iptables & netpolicy isolation engine
+│       │   │   │   ├── model/
+│       │   │   │   │   └── NetCutApp.kt           # Blocked app rule model
+│       │   │   │   ├── repository/
+│       │   │   │   │   └── NetCutRepository.kt    # Blocked apps persistent storage
+│       │   │   │   └── ui/
+│       │   │   │       └── NetCutCard.kt          # Per-app firewall control card
+│       │   │   ├── shizuku/
+│       │   │   │   ├── ShizukuStarterManager.kt   # Wireless ADB port detection & daemon starter
+│       │   │   │   └── ui/
+│       │   │   │       └── ShizukuStarterCard.kt  # 1-tap daemon starter card
 │       │   │   ├── telephony/
 │       │   │   │   ├── TelephonyController.kt     # Dual-SIM Switcher
 │       │   │   │   ├── ims/
@@ -234,15 +280,18 @@ Whenever a version tag (`v*`) is pushed:
 │       │   │   └── workflow/
 │       │   │       ├── model/
 │       │   │       │   ├── WorkflowStep.kt        # Step models & JSON
+│       │   │       │   ├── WorkflowTrigger.kt     # Background event trigger types
 │       │   │       │   └── Workflow.kt            # Workflow data model & JSON
 │       │   │       ├── runner/
 │       │   │       │   ├── WorkflowRunner.kt      # Sequential executor & smart click
 │       │   │       │   └── PointerLocationHelper.kt # Coordinate overlay helper
 │       │   │       ├── repository/
 │       │   │       │   └── WorkflowRepository.kt  # JSON file persistence & seed templates
+│       │   │       ├── trigger/
+│       │   │       │   └── WorkflowTriggerManager.kt # Background system broadcast event evaluator
 │       │   │       └── ui/
-│       │   │           ├── WorkflowCard.kt        # UI card with progress
-│       │   │           ├── WorkflowEditorDialog.kt# Step editor modal
+│       │   │           ├── WorkflowCard.kt        # UI card with progress & trigger chips
+│       │   │           ├── WorkflowEditorDialog.kt# Step & trigger editor modal
 │       │   │           └── AppPickerDialog.kt     # Searchable installed apps selector
 │       │   └── ui/
 │       │       ├── MainActivity.kt          # Host activity & Shizuku permission listener
